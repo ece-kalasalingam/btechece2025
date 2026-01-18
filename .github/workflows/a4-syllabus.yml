@@ -35,26 +35,27 @@ jobs:
         run: |
           python scripts/process_courses.py --format a4
 
-      # 5. Compile A4 PDF
+     # 5. Compile A4 PDF (Explicitly set the output directory)
       - name: Compile A4 PDF
         uses: xu-cheng/latex-action@v3
         with:
           root_file: outputs/a4/master_syllabus.tex
           compiler: xelatex
-          args: "-interaction=nonstopmode -halt-on-error"
+          # We add the -output-directory flag to force it into the right folder
+          args: "-interaction=nonstopmode -halt-on-error -output-directory=outputs/a4"
 
-      # 6. Commit only if PDF changed
+      # 6. Commit generated files (Added a list command for debugging)
       - name: Commit generated A4 PDF
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Check if the file exists before trying to add it
-          if [ -f outputs/a4/master_syllabus.pdf ]; then
-            git add outputs/a4/*.pdf
-            git diff --cached --quiet || git commit -m "Auto-generate A4 syllabus PDF"
-            git push
-          else
-            echo "PDF not found. Skipping commit."
-            exit 1 # This will make the action show as failed so you know to check logs
-          fi
+          
+          # This command helps us see exactly where the files are in the logs
+          ls -R outputs/
+          
+          git add outputs/a4/*.pdf
+          git add outputs/a4/*.tex
+          
+          git diff --cached --quiet || git commit -m "Auto-generate A4 syllabus book"
+          git push
         
