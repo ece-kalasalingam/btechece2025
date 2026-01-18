@@ -4,7 +4,8 @@ import sys
 
 def main():
     out_dir = "outputs/a4"
-    os.makedirs(out_dir, exist_ok=True)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
     tex_path = os.path.join(out_dir, "master_syllabus.tex")
 
