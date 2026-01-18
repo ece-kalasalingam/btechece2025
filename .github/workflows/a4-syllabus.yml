@@ -39,9 +39,8 @@ jobs:
       - name: Compile A4 PDF
         uses: xu-cheng/latex-action@v3
         with:
-          root_file: outputs/a4/master_syllabus.tex
+          root_file: masters/syllabus_a4.tex
           compiler: xelatex
-          # We add the -output-directory flag to force it into the right folder
           args: "-interaction=nonstopmode -halt-on-error -output-directory=outputs/a4"
 
       # 6. Commit generated files (Added a list command for debugging)
