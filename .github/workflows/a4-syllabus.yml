@@ -1,0 +1,45 @@
+name: Generate A4 Syllabus Book (PDF)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-a4-syllabus:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 3. Install system dependencies (LaTeX)
+      - name: Install LaTeX (TeX Live)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            texlive-xetex \
+            texlive-latex-extra \
+            texlive-fonts-recommended \
+            texlive-fonts-extra
+
+      # 4. (TEMP) Generate placeholder output
+      # Replace this later with your Python + LaTeX build
+      - name: Generate A4 syllabus (placeholder)
+        run: |
+          mkdir -p outputs/a4
+          echo "A4 syllabus build generated on $(date)" > outputs/a4/README.txt
+
+      # 5. Commit and push generated files
+      - name: Commit generated A4 syllabus
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add outputs/a4
+          git commit -m "Auto-generate A4 syllabus book" || echo "No changes to commit"
+          git push
