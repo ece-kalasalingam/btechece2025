@@ -1,0 +1,28 @@
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{array}
+
+\pagestyle{fancy}
+\fancyhf{} % clear all
+
+\fancyhead[C]{%
+  \begin{minipage}{\textwidth}
+    \centering
+    \begin{tabular}{@{}m{23mm}@{\hspace{2mm}}m{\dimexpr\textwidth-27mm\relax}@{}}
+      % Logo (left)
+      \includegraphics[width=23mm]{assets/logos/kare-logo.png}
+      &
+      % Text (right, vertically centered)
+      \centering
+      \textbf{Kalasalingam Academy of Research and Education}\\
+      \small
+      (Deemed to be University)\\
+      Under Sec. 3 of UGC Act 1956\\
+      Anand Nagar, Krishnankoil (Via)\\
+      Virudhunagar (Dt), Tamil Nadu, India – 626 126
+    \end{tabular}
+  \end{minipage}
+}
+
+\renewcommand{\headrulewidth}{0pt}
+\setlength{\headheight}{30mm}  % safe for A4 & A5
