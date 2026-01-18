@@ -48,6 +48,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add outputs/a4/*.pdf
-          git diff --cached --quiet || git commit -m "Auto-generate A4 syllabus PDF"
-          git push
+          # Check if the file exists before trying to add it
+          if [ -f outputs/a4/master_syllabus.pdf ]; then
+            git add outputs/a4/*.pdf
+            git diff --cached --quiet || git commit -m "Auto-generate A4 syllabus PDF"
+            git push
+          else
+            echo "PDF not found. Skipping commit."
+            exit 1 # This will make the action show as failed so you know to check logs
+          fi
+        
