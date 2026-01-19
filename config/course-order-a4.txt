@@ -1,0 +1,11 @@
+# ==================================================
+# Authoritative A4 syllabus order
+# One course code per line under each category
+# Build FAILS on any mismatch
+# ==================================================
+
+[PM]
+ECE101
+
+[PE]
+ECE102

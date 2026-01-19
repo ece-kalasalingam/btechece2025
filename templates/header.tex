@@ -26,3 +26,22 @@
 
 \renewcommand{\headrulewidth}{0pt}
 \setlength{\headheight}{30mm}  % safe for A4 & A5
+% ========================================
+% Course boundary macros
+% ========================================
+\newcommand{\BeginCourse}[1]{%
+  \clearpage
+  % #1 = Course code (reserved for future use)
+}
+
+\newcommand{\EndCourse}{%
+  % currently empty; hook for future use
+}
+% ----------------------------------------
+% Course Title Block
+% ----------------------------------------
+\newcommand{\CourseTitle}[2]{%
+  \begin{center}
+    \Large\bfseries #1 \Large\bfseries\scshape #2
+  \end{center}
+}

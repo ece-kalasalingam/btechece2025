@@ -1,15 +1,18 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[9pt]{extarticle}
 \usepackage{fontspec}
 \setmainfont{Libertinus Serif}
 
-\usepackage[a4paper, top=2mm,
-  margin=20mm,
+\usepackage[a5paper, top=02mm,
+  bottom=15mm,
+  left=15mm,
+  right=15mm,
   headheight=30mm,
   headsep=2mm,
   footskip=15mm,  includehead, includefoot]{geometry}
+\raggedbottom % Prevents LaTeX from pushing content off-page to justify height
 \usepackage{parskip}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{6pt}
+\setlength{\parskip}{3pt}
 \setlength{\parsep}{0pt}
 \usepackage{longtable}
 \usepackage{array}
@@ -21,22 +24,20 @@
 \DefTblrTemplate{capcont}{default}{}    % Removes a caption on subsequent pages
 \DefTblrTemplate{contfoot}{default}{} 
 
+
 \setlist[enumerate]{nosep, leftmargin=*, topsep=0pt, partopsep=0pt}
 \setlist[itemize]{nosep, leftmargin=*, topsep=0pt, partopsep=0pt}
-\newcolumntype{Z}{>{\centering\arraybackslash}p{0.05\textwidth}}
+\newcolumntype{Z}{>{\centering\arraybackslash}p{0.04\textwidth}}
 
 \input{templates/header.tex}
 
-% ----------------------------------------
-% Course Meta Table (3 rows, merged left cell)
-% ----------------------------------------
+
 % ----------------------------------------
 % Course Meta Table (3 rows, merged left cell)
 % ----------------------------------------
 \newcommand{\CourseMetaTable}[8]{%
   \par
   \nointerlineskip
-  \noindent
   \noindent
   \begin{tabularx}{\textwidth}{|X|Z|Z|Z|Z|Z|}
   \hline
@@ -50,7 +51,6 @@
   \par \medskip
 }
 \overfullrule=20pt
-
 \begin{document}
 
 % ==================================================

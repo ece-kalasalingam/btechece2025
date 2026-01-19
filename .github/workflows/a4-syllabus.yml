@@ -30,7 +30,7 @@ jobs:
           pip install --no-cache-dir TexSoup
 
       # 4. Generate LaTeX (validation + content)
-      # Must produce: outputs/a4/master_syllabus.tex
+      # Must produce: outputs/a4/body.tex
       - name: Generate A4 LaTeX
         run: |
           python scripts/process_courses.py --format a4
@@ -55,6 +55,5 @@ jobs:
           git add outputs/a4/*.pdf
           git add outputs/a4/*.tex
           
-          git diff --cached --quiet || git commit -m "Auto-generate A4 syllabus book"
+          git diff --cached --quiet || git commit -m "[CI]  Auto-generate A4 syllabus book"
           git push
-        
