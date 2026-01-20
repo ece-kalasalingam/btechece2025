@@ -46,6 +46,19 @@ def get_scalar(soup, cmd, course):
     if not node:
         raise ValueError(f"{course}: Missing \\{cmd}")
     return "".join(str(x) for x in node.contents).strip()
+def get_scalar_arg(node):
+    """
+    Extracts a scalar argument from a TexSoup node argument:
+    {9}   -> "9"
+    {CO1} -> "CO1"
+    """
+    if not node or not node.args:
+        return None
+    s = str(node.args[0]).strip()
+    if s.startswith("{") and s.endswith("}"):
+        s = s[1:-1].strip()
+    return s
+
 def format_course_title(text):
     words = text.strip().split()
     if not words:
@@ -154,6 +167,42 @@ def load_category_order(path: Path, allowed_categories):
 
     return order
 
+def validate_units_vs_ltpx(course, units):
+    L = int(course.L)
+    T = int(course.T)
+    P = int(course.P)
+    X = int(course.X)
+
+    exp_T = 15 * (L + T)
+    exp_P = 15 * P
+    exp_X = 15 * X
+
+    tot_T = sum(u["theory_hours"] for u in units)
+    tot_P = sum(u["lab_hours"] for u in units)
+    tot_X = sum(u["x_hours"] for u in units)
+
+    for u in units:
+        if (L + T) == 0 and (u["theory_hours"] > 0 or u["theory_tex"]):
+            raise ValueError(f"{course.code} Unit {u['unit']}: Theory present but L+T=0")
+        if P == 0 and (u["lab_hours"] > 0 or u["lab_tex"]):
+            raise ValueError(f"{course.code} Unit {u['unit']}: Lab present but P=0")
+        if X == 0 and (u["x_hours"] > 0 or u["x_tex"]):
+            raise ValueError(f"{course.code} Unit {u['unit']}: X present but X=0")
+
+        if u["theory_hours"] > 0 and not u["theory_tex"]:
+            raise ValueError(f"{course.code} Unit {u['unit']}: Missing theory content")
+        if u["lab_hours"] > 0 and not u["lab_tex"]:
+            raise ValueError(f"{course.code} Unit {u['unit']}: Missing lab content")
+        if u["x_hours"] > 0 and not u["x_tex"]:
+            raise ValueError(f"{course.code} Unit {u['unit']}: Missing X content")
+
+    if tot_T != exp_T:
+        raise ValueError(f"{course.code}: Theory hours {tot_T} ≠ {exp_T}")
+    if tot_P != exp_P:
+        raise ValueError(f"{course.code}: Lab hours {tot_P} ≠ {exp_P}")
+    if tot_X != exp_X:
+        raise ValueError(f"{course.code}: X hours {tot_X} ≠ {exp_X}")
+
 def parse_course(path: Path):
     soup = TexSoup(path.read_text(encoding="utf-8"))
 
@@ -166,8 +215,13 @@ def parse_course(path: Path):
     ltpx_node = soup.find("CourseLTPXHours")
     if not ltpx_node:
         raise ValueError(f"{code}: Missing \\CourseLTPXHours")
-    args = [str(arg).strip() for arg in ltpx_node.args]
-
+    args = []
+    for arg in ltpx_node.args:
+        s = str(arg).strip()
+        # Remove LaTeX curly braces if present
+        if s.startswith("{") and s.endswith("}"):
+            s = s[1:-1].strip()
+        args.append(s)
     if len(args) != 4:
         raise ValueError(
             f"{code}: \\CourseLTPXHours must have 4 arguments (L,T,P,X)"
@@ -278,6 +332,44 @@ def parse_course(path: Path):
     )
     return course
 
+def parse_course_units(soup, course_code):
+    units = []
+    for cu in soup.find_all("CourseUnit"):
+        block = TexSoup(str(cu.args[0]))
+
+        def get(cmd):
+            node = block.find(cmd)
+            # Use get_scalar_arg to remove { } braces
+            return get_scalar_arg(node) 
+
+        unit_no = get("UnitNumber")
+        unit_title = get("UnitTitle") 
+        unit_cos = get("UnitCOs")     
+
+        if not unit_no:
+            raise ValueError(f"{course_code}: Unit without \\UnitNumber")
+
+        # Convert cleaned strings to integers
+        Th = int(get("TheoryHours") or 0)
+        Ph = int(get("LabHours") or 0)
+        Xh = int(get("XHours") or 0)
+
+        theory_node = block.find("TheoryContent")
+        lab_node    = block.find("LabContent")
+        x_node      = block.find("XContent")
+
+        units.append({
+            "unit": int(unit_no),
+            "title": unit_title or "",  
+            "cos": unit_cos or "",      
+            "theory_hours": Th,
+            "lab_hours": Ph,
+            "x_hours": Xh,
+            "theory_tex": str(theory_node.args[0]) if theory_node else "",
+            "lab_tex": str(lab_node.args[0]) if lab_node else "",
+            "x_tex": str(x_node.args[0]) if x_node else "",
+        })
+    return units
 
 def emit_nba_longtblr(course):
     lines = []
@@ -368,6 +460,54 @@ def emit_abet_longtblr(course):
     # ---------- CLOSE TABLE ----------
     lines.append(r"\end{longtblr}")
     return lines
+def emit_unit_table(units):
+    lines = []
+    lines.append(r"\par\noindent\textbf{Course Topics}")
+    lines.append(r"\begin{longtblr}[entry=none,label=none]{")
+    lines.append(r"  colspec = {| c | X[m,l] | c | c |},")
+    lines.append(r"  row{1} = {font=\bfseries},")
+    lines.append(r"  rowsep = 2pt,")
+    lines.append(r"}")
+
+    # Header
+    lines.append(r"\hline")
+    lines.append(r"\textbf{Unit} & \textbf{Contents} & \textbf{Hrs.} & \textbf{COs} \\")
+    lines.append(r"\hline")
+
+    for u in units:
+        # Unit header row
+        lines.append(
+            rf"{u['unit']} & \textbf{{{u['title']}}} & & {u['cos']} \\"
+        )
+
+        # Theory row
+        if u["theory_hours"] > 0:
+            lines.append(
+                rf" & \begin{{minipage}}[t]{{\linewidth}}"
+                rf"\textbf{{Theory:}}\par {u['theory_tex']}"
+                rf"\end{{minipage}} & {u['theory_hours']} & \\"
+            )
+
+        # Practical row
+        if u["lab_hours"] > 0:
+            lines.append(
+                rf" & \begin{{minipage}}[t]{{\linewidth}}"
+                rf"\textbf{{Practical:}}\par {u['lab_tex']}"
+                rf"\end{{minipage}} & {u['lab_hours']} & \\"
+            )
+
+        # X-Activity row
+        if u["x_hours"] > 0:
+            lines.append(
+                rf" & \begin{{minipage}}[t]{{\linewidth}}"
+                rf"\textbf{{X-Activity:}}\par {u['x_tex']}"
+                rf"\end{{minipage}} & {u['x_hours']} & \\"
+            )
+
+        lines.append(r"\hline")
+
+    lines.append(r"\end{longtblr}")
+    return lines
 
 def generate_a4_body(courses):
     tex = []
@@ -417,6 +557,11 @@ def generate_a4_body(courses):
         tex.extend(emit_nba_longtblr(course))
         # ---------- ABET Articulation ----------
         tex.extend(emit_abet_longtblr(course))
+        # ---------- Course Topics Table ------
+        soup = TexSoup((COURSES_DIR / f"{course.code}.tex").read_text(encoding="utf-8"))
+        units = parse_course_units(soup, course.code)
+        validate_units_vs_ltpx(course, units)
+        tex.extend(emit_unit_table(units))
         # ---------- Textbooks & References ------
         tex.append(r"\par ")
         tex.append(r"\noindent")

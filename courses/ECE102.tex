@@ -2,7 +2,7 @@
 \CourseName{Course Code of Sample nEW cOURSES}
 \CourseCategory{PE}
 \CourseType{TC}
-\CourseLTPXHours{3}{1}{0}{0}
+\CourseLTPXHours{3}{0}{2}{0}
 \CourseCredits{4}
 \CoursePrerequisite{Course Code of Sample Pre-requisite}
 
@@ -35,15 +35,302 @@ This course introduces fundamental circuit analysis methods for linear networks.
   {1, 2, 3, 2, 1, -, -,  1, 1,-}
 }
 
-\CourseSyllabus{
-\begin{itemize}
-  \item Circuit variables and elements; independent and dependent sources.
-  \item Network theorems: superposition, Thevenin, Norton, maximum power transfer.
-  \item Nodal and mesh analysis; source transformations.
-  \item First-order circuits: RC/RL transient response (basic form).
-  \item Sinusoidal steady state; phasors; impedance and admittance.
-  \item AC power: real, reactive, apparent power; power factor.
-\end{itemize}
+
+\CourseUnit{
+  \UnitNumber{1}
+  \UnitTitle{Semiconductor Physics}
+
+  \TheoryHours{9}
+  \LabHours{6}
+  \XHours{0}
+
+  \UnitCOs{CO1}
+
+  \TheoryContent{
+    \begin{itemize}
+      \item Energy band formation
+        \begin{itemize}
+          \item E-k diagrams, Energy band formation: conductors, semiconductors, insulators
+        \end{itemize}
+
+      \item Intrinsic and extrinsic semiconductors
+        \begin{itemize}
+          \item Intrinsic and extrinsic semiconductors, their energy bands
+        \end{itemize}
+
+      \item Doping, impurity ionization, Fermi level
+        \begin{itemize}
+          \item Doping, impurity ionization, Fermi level
+        \end{itemize}
+
+      \item Carrier transport; carrier generation and recombination
+        \begin{itemize}
+          \item Carrier transport: drift, mobility, diffusion
+          \item Carrier generation and recombination
+        \end{itemize}
+
+      \item Resistivity; sheet resistance; Poisson and continuity equations
+        \begin{itemize}
+          \item Resistivity of doped semiconductors; sheet resistance fundamentals
+          \item Poisson and continuity equations
+        \end{itemize}
+    \end{itemize}
+  }
+
+  \LabContent{
+    \begin{itemize}
+      \item Simulation of Energy Band Models and Material Resistivity Trends
+        \begin{itemize}
+          \item Define realistic semiconductor materials, doping concentrations, and temperature ranges using standard material parameters.
+          \item Compute and plot resistivity variation with doping concentration and temperature, ensuring physically meaningful results.
+          \item Illustrate qualitative energy band diagrams and analyse Fermi level shift with doping type and level.
+        \end{itemize}
+
+      \item Carrier Concentration vs Temperature Visualization
+        \begin{itemize}
+          \item Compute carrier concentration variation with temperature for intrinsic and doped semiconductors.
+          \item Select doping concentrations to satisfy a target resistivity condition at room temperature.
+          \item Plot and analyse carrier concentration trends over a practical temperature range.
+        \end{itemize}
+    \end{itemize}
+  }
+}
+
+\CourseUnit{
+  \UnitNumber{2}
+  \UnitTitle{PN Junction and Diode Characteristics}
+
+  \TheoryHours{9}
+  \LabHours{6}
+  \XHours{0}
+
+  \UnitCOs{CO2}
+
+  \TheoryContent{
+    \begin{itemize}
+      \item PN junction and biasing
+        \begin{itemize}
+          \item PN junction formation, equilibrium, depletion region
+          \item Forward and reverse bias characteristics
+        \end{itemize}
+
+      \item Diode characteristics and models
+        \begin{itemize}
+          \item Diode I–V equation
+          \item Temperature effects on diode behaviour
+          \item Junction capacitances
+          \item Spice modelling of diodes, diode small signal model
+        \end{itemize}
+
+      \item Breakdown mechanisms and special diodes
+        \begin{itemize}
+          \item Breakdown mechanisms: Zener, avalanche
+          \item Zener and Schottky diode basics
+        \end{itemize}
+
+      \item Optoelectronic diodes
+        \begin{itemize}
+          \item Photodiode operation, responsivity, dark current
+          \item LED operation
+          \item Solar cell: photocurrent, open-circuit voltage
+        \end{itemize}
+
+      \item Diode datasheets
+        \begin{itemize}
+          \item Interpretation of diode datasheets
+        \end{itemize}
+    \end{itemize}
+  }
+
+  \LabContent{
+    \begin{itemize}
+      \item PN Junction and Zener Diode I--V Characteristics
+        \begin{itemize}
+          \item Design a safe experimental setup to measure forward and reverse I--V characteristics within datasheet limits.
+          \item Record and plot I--V characteristics to identify key operating regions.
+          \item Compare experimentally obtained parameters with datasheet specifications.
+        \end{itemize}
+
+      \item LED and Photodiode I--V Characteristics under Illumination
+        \begin{itemize}
+          \item Measure I--V characteristics of LEDs and photodiodes under controlled illumination.
+          \item Select appropriate sensing resistance and analyse wavelength-dependent response.
+          \item Interpret results using responsivity and wavelength data from datasheets.
+        \end{itemize}
+    \end{itemize}
+  }
+}
+
+\CourseUnit{
+  \UnitNumber{3}
+  \UnitTitle{Diode Circuits and Applications}
+
+  \TheoryHours{9}
+  \LabHours{6}
+  \XHours{0}
+
+  \UnitCOs{CO3}
+
+  \TheoryContent{
+    \begin{itemize}
+      \item Rectifiers and ripple
+        \begin{itemize}
+          \item Half-wave, full-wave, and bridge rectifiers
+          \item Ripple factor
+        \end{itemize}
+
+      \item Filter circuits
+        \begin{itemize}
+          \item Filter circuits (capacitor filter, RC basics)
+        \end{itemize}
+
+      \item Wave shaping circuits
+        \begin{itemize}
+          \item Clippers and clampers
+          \item Voltage multiplier
+        \end{itemize}
+
+      \item Zener diode applications
+        \begin{itemize}
+          \item Zener diode as voltage limiter/regulator
+        \end{itemize}
+
+      \item Load-line and component considerations
+        \begin{itemize}
+          \item Load-line analysis of Diodes
+          \item Component tolerances and derating fundamentals
+        \end{itemize}
+    \end{itemize}
+  }
+
+  \LabContent{
+    \begin{itemize}
+      \item Rectifier with Filter Design to Achieve Given Ripple Specification
+        \begin{itemize}
+          \item Design a rectifier and filter circuit to meet a specified ripple requirement.
+          \item Select component ratings based on voltage and current constraints.
+          \item Measure output waveform and ripple and validate against design targets.
+        \end{itemize}
+
+      \item Design of a Zener Voltage Regulator
+        \begin{itemize}
+          \item Design a Zener regulator to maintain approximately constant output voltage.
+          \item Select series resistance based on load and Zener current requirements.
+          \item Evaluate regulation performance under varying load conditions.
+        \end{itemize}
+
+      \item Clipper and Clamper Circuit Realisation and Analysis
+        \begin{itemize}
+          \item Design clipper and clamper circuits to achieve specified voltage limits.
+          \item Analyse circuit behaviour considering diode forward voltage.
+          \item Validate output waveforms using practical component parameters.
+        \end{itemize}
+    \end{itemize}
+  }
+}
+
+\CourseUnit{
+  \UnitNumber{4}
+  \UnitTitle{Bipolar Junction Transistors (BJTs)}
+
+  \TheoryHours{9}
+  \LabHours{6}
+  \XHours{0}
+
+  \UnitCOs{CO4}
+
+  \TheoryContent{
+    \begin{itemize}
+      \item BJT structure and operation
+        \begin{itemize}
+          \item BJT structure: NPN and PNP
+          \item Carrier flow and transistor action
+        \end{itemize}
+
+      \item Operating regions and characteristics
+        \begin{itemize}
+          \item Operating regions: cutoff, active, saturation
+          \item Large-signal output characteristics
+          \item Early effect
+        \end{itemize}
+
+      \item BJT parameters
+        \begin{itemize}
+          \item Emitter efficiency, base transport factor
+        \end{itemize}
+
+      \item Switching behaviour
+        \begin{itemize}
+          \item BJT switching characteristics: rise time, fall time, storage time
+        \end{itemize}
+    \end{itemize}
+  }
+
+  \LabContent{
+    \begin{itemize}
+      \item BJT CE Characteristics and Parameter Extraction
+        \begin{itemize}
+          \item Design an experimental setup to measure CE characteristics safely.
+          \item Extract transistor parameters across different operating regions.
+          \item Verify measured values against datasheet limits.
+        \end{itemize}
+
+      \item BJT as a Switch Using Pulse Input
+        \begin{itemize}
+          \item Design a BJT switch circuit for a specified load and supply.
+          \item Select base and collector resistances to ensure saturation.
+          \item Analyse switching behaviour using pulse input and output waveforms.
+        \end{itemize}
+    \end{itemize}
+  }
+}
+\CourseUnit{
+  \UnitNumber{5}
+  \UnitTitle{MOS Transistors and IC Fabrication}
+
+  \TheoryHours{9}
+  \LabHours{6}
+  \XHours{0}
+
+  \UnitCOs{CO4, CO5}
+
+  \TheoryContent{
+    \begin{itemize}
+      \item MOS capacitor and MOSFET operation
+        \begin{itemize}
+          \item MOS capacitor: accumulation, depletion, inversion
+          \item Threshold voltage concept
+          \item MOSFET I–V: cutoff, linear, saturation
+          \item MOSFET as a switch
+        \end{itemize}
+
+      \item IC fabrication technology
+        \begin{itemize}
+          \item IC definition and classification
+          \item IC design flow
+          \item IC Fabrication: Purpose, Various stages
+          \item IC Packaging and Bonding
+        \end{itemize}
+    \end{itemize}
+  }
+
+  \LabContent{
+    \begin{itemize}
+      \item MOSFET Transfer and Output Characteristics
+        \begin{itemize}
+          \item Measure MOSFET transfer and output characteristics to estimate threshold voltage.
+          \item Design a test circuit to observe MOSFET switching behaviour.
+          \item Interpret measured parameters using datasheet specifications.
+        \end{itemize}
+
+      \item IC Fabrication Flow and Device Cross-Section Sketching
+        \begin{itemize}
+          \item Develop a logical IC fabrication process flow.
+          \item Draw device cross-sections after key fabrication steps.
+          \item Use standard IC fabrication terminology and layer conventions.
+        \end{itemize}
+    \end{itemize}
+  }
 }
 \CourseReferences{
 \textbf{Textbooks}

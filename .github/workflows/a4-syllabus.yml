@@ -44,6 +44,7 @@ jobs:
           args: "-interaction=nonstopmode -halt-on-error -output-directory=outputs/a4"
 
       # 6. Commit generated files (Added a list command for debugging)
+      #xelatex -interaction=nonstopmode -output-directory=outputs/a4 masters/syllabus_a4.tex
       - name: Commit generated A4 PDF
         run: |
           git config user.name "github-actions[bot]"

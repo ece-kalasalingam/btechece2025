@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.1.18)  19 JAN 2026 06:21
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.1.19)  20 JAN 2026 16:38
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -460,6 +460,14 @@ LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
 > Step: execute table commands.
 > Step: calculate cell and line sizes.
 > Step: build the whole table.
+> Step: init table outer spec.
+> Step: parse table options.
+> Step: split table.
+> Step: init table inner spec.
+> Step: parse table inner spec.
+> Step: execute table commands.
+> Step: calculate cell and line sizes.
+> Step: build the whole table.
 
 
 File: assets/logos/kare-logo.png Graphic file (type bmp)
@@ -472,41 +480,77 @@ File: assets/logos/kare-logo.png Graphic file (type bmp)
 File: assets/logos/kare-logo.png Graphic file (type bmp)
 <assets/logos/kare-logo.png>
 [2]
-> Step: init table outer spec.
-> Step: parse table options.
-> Step: split table.
-> Step: init table inner spec.
-> Step: parse table inner spec.
-> Step: execute table commands.
-> Step: calculate cell and line sizes.
-> Step: build the whole table.
-> Step: init table outer spec.
-> Step: parse table options.
-> Step: split table.
-> Step: init table inner spec.
-> Step: parse table inner spec.
-> Step: execute table commands.
-> Step: calculate cell and line sizes.
-> Step: build the whole table.
-)
 
 File: assets/logos/kare-logo.png Graphic file (type bmp)
 <assets/logos/kare-logo.png>
-[3
+[3]
 
-] (outputs/a4/syllabus_a4.aux)
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[4]
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[5]
+> Step: init table outer spec.
+> Step: parse table options.
+> Step: split table.
+> Step: init table inner spec.
+> Step: parse table inner spec.
+> Step: execute table commands.
+> Step: calculate cell and line sizes.
+> Step: build the whole table.
+> Step: init table outer spec.
+> Step: parse table options.
+> Step: split table.
+> Step: init table inner spec.
+> Step: parse table inner spec.
+> Step: execute table commands.
+> Step: calculate cell and line sizes.
+> Step: build the whole table.
+> Step: init table outer spec.
+> Step: parse table options.
+> Step: split table.
+> Step: init table inner spec.
+> Step: parse table inner spec.
+> Step: execute table commands.
+> Step: calculate cell and line sizes.
+> Step: build the whole table.
+
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[6
+
+]
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[7]
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[8]
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[9])
+
+File: assets/logos/kare-logo.png Graphic file (type bmp)
+<assets/logos/kare-logo.png>
+[10] (outputs/a4/syllabus_a4.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 7922 strings out of 473832
- 204228 string characters out of 5733158
- 724877 words of memory out of 5000000
- 30929 multiletter control sequences out of 15000+600000
- 569340 words of font info for 78 fonts, out of 8000000 for 9000
+ 8073 strings out of 473832
+ 209674 string characters out of 5733158
+ 959996 words of memory out of 5000000
+ 31080 multiletter control sequences out of 15000+600000
+ 573218 words of font info for 84 fonts, out of 8000000 for 9000
  1348 hyphenation exceptions out of 8191
- 79i,21n,105p,539b,780s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 79i,21n,113p,539b,1157s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on outputs/a4/syllabus_a4.pdf (3 pages).
+Output written on outputs/a4/syllabus_a4.pdf (10 pages).
