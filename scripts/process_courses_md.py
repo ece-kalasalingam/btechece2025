@@ -33,7 +33,6 @@ def parse_markdown(text):
 # Validators
 # -------------------------
 
-COLON_BULLET_RE = re.compile(r"^([^:]+)\s*:\s*(.+)$")
 CO_RE = re.compile(r"^CO\d+\s*:")
 # -------------------------
 # Section heading regexes (with hours)
@@ -62,9 +61,10 @@ def parse_ltpxc(ltpxc: str, file: str) -> tuple[int, int, int, int, int]:
         error(f"Invalid LTPXC format: '{ltpxc}'", file)
 
 def validate_colon_bullet(text, file):
-    if text.count(":") < 1:
+    # Must have at least one colon
+    if ":" not in text:
         error(
-            f"Invalid topic bullet (must contain minimum  one colon): '{text}'",
+            f"Invalid topic bullet (must contain at least one colon): '{text}'",
             file
         )
 
@@ -74,18 +74,22 @@ def validate_colon_bullet(text, file):
             file
         )
 
-    parts = text.split(":", 1)
-    topic = parts[0].strip()
-    details_content = parts[1].strip()
-    details = [d.strip() for d in re.split(r";|,", details_content) if d.strip()]
+    # Split ONLY on the first colon
+    topic, rest = text.split(":", 1)
 
-    if not topic or not details:
+    topic = topic.strip()
+    rest = rest.strip()
+
+    if not topic or not rest:
         error(
-            f"Empty topic or details in bullet: '{text}'",
+            f"Empty topic or sub-topic in bullet: '{text}'",
             file
         )
 
-    return topic, details
+    # Store EVERYTHING after first colon as ONE sub-topic string
+    subtopics = [rest]
+
+    return topic, subtopics
 
 def tex_safe(text):
     """Escapes common LaTeX special characters."""
@@ -107,10 +111,11 @@ def tex_safe(text):
         text = text.replace(char, safe_version)
     return text
 
-def extract_course_header(md_tokens, file) -> tuple[str, str, str]:
+def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
     title = None
     code = None
-    ltpc = None
+    ltpxc = None
+    prerequisite = None
     metadata_blob = []
 
     for i, t in enumerate(md_tokens):
@@ -140,6 +145,14 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str]:
         error("Missing Course Code", file)
 
     code = code_match.group(1).strip()
+    prereq_match = re.search(
+        r"Pre-?requisite\s*:\s*([^\n]+)",
+        full_text,
+        re.IGNORECASE
+    )
+
+    prerequisite = prereq_match.group(1).strip() if prereq_match else None
+
 
     ltpxc_match = re.search(
         r"L\s*-\s*T\s*-\s*P\s*-\s*X\s*-\s*C\s*:\s*(\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+)",
@@ -153,17 +166,18 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str]:
     # Normalize LTPXC (remove spaces)
     ltpxc = re.sub(r"\s*", "", ltpxc_match.group(1))
 
-    return title, code, ltpxc
+    return title, code, ltpxc, prerequisite
 
 # -------------------------
 # Semantic Model Builders
 # -------------------------
 
-def build_course(md_tokens, file, title, code, ltpxc):
+def build_course(md_tokens, file, title, code, ltpxc, prerequisite):
     course = {
         "title": title,
         "code": code,
         "ltpxc": ltpxc,
+        "prerequisite": prerequisite,
         "objectives": [],
         "outcomes": [],
         "units": []
@@ -192,8 +206,8 @@ def build_course(md_tokens, file, title, code, ltpxc):
     if not course["title"] or not course["code"]:
         error("Missing course title or course code", file)
 
-        # -------------------------
-    # Hour validation
+    # -------------------------
+    # Presence validation
     # -------------------------
     L, T, P, X, C = parse_ltpxc(course["ltpxc"], file)
 
@@ -209,6 +223,7 @@ def build_course(md_tokens, file, title, code, ltpxc):
         if u["x"] is not None:
             total_x += u["x"]["hours"]
         # ---- Theory presence ----
+    
     if (L + T) > 0:
         if total_theory == 0:
             error(
@@ -240,10 +255,47 @@ def build_course(md_tokens, file, title, code, ltpxc):
     else:
         if total_x > 0:
             error("X-Activity found but X = 0", file)
-    
+
+    # Number of units check
+    if len(course["units"]) != 5:
+        error(
+            f"Invalid number of units: expected 5, found {len(course['units'])}",
+            file
+        )
+    # Unit numbering continuity (DSL v1.1)
+    expected_numbers = list(range(1, 6))
+    found_numbers = [u["number"] for u in course["units"]]
+
+    if found_numbers != expected_numbers:
+        error(
+            f"Invalid unit numbering: expected units {expected_numbers}, "
+            f"but found {found_numbers}",
+            file
+        )
     # -------------------------
-    # Empty Unit Validation (DSL v1.0)
+    # Per-unit component consistency (Policy rule)
     # -------------------------
+    for u in course["units"]:
+        if (L + T) > 0 and u["theory"] is None:
+            error(
+                f"Unit {u['number']} missing Theory Content (L+T > 0)",
+                file
+            )
+
+        if P > 0 and u["lab"] is None:
+            error(
+                f"Unit {u['number']} missing Laboratory Experiments (P > 0)",
+                file
+            )
+
+        if X > 0 and u["x"] is None:
+            error(
+                f"Unit {u['number']} missing X-Activity (X > 0)",
+                file
+            )
+        # -------------------------
+        # Empty Unit Validation (DSL v1.0)
+        # -------------------------
         total_topics = 0
 
         # Count only LTPXC-allowed sections
@@ -261,8 +313,10 @@ def build_course(md_tokens, file, title, code, ltpxc):
                 f"Unit {u['number']} is empty: no topics found in any LTPXC-allowed section",
                 file
             )
-
-
+    
+    # -------------------------
+    # Hours Consistency Check
+    # -------------------------    
     expected_theory = 15 * (L + T)
     expected_lab = 15 * P
     expected_x = 15 * X
@@ -284,6 +338,7 @@ def build_course(md_tokens, file, title, code, ltpxc):
             f"X-Activity hours mismatch: expected {expected_x}, found {total_x}",
             file
         )
+    
     # -------------------------
     # Credit Consistency Check (Exact, LTPXC)
     # -------------------------
@@ -360,6 +415,7 @@ def parse_unit(tokens, idx, file):
         "x": None
     }
     i=idx
+    seen_sections = []
     while i < len(tokens) and tokens[i].type != "heading_close":
         i += 1
         if i >= len(tokens):
@@ -396,6 +452,7 @@ def parse_unit(tokens, idx, file):
         # -------------------------
         m_theory = THEORY_HDR_RE.match(section_title)
         if m_theory:
+            seen_sections.append("theory")
             if unit["theory"] is not None:
                 error(
                     f"Unit {unit['number']}: Duplicate Theory Content section",
@@ -476,6 +533,7 @@ def parse_unit(tokens, idx, file):
         # -------------------------
         m_lab = LAB_HDR_RE.match(section_title)
         if m_lab:
+            seen_sections.append("lab")
             if unit["lab"] is not None:
                 error(f"Unit {unit['number']}: Duplicate Laboratory Experiments section", file)
 
@@ -573,6 +631,7 @@ def parse_unit(tokens, idx, file):
         # -------------------------
         m_x = X_HDR_RE.match(section_title)
         if m_x:
+            seen_sections.append("x")
             if unit["x"] is not None:
                 error(
                     f"Unit {unit['number']}: Duplicate X-Activity section",
@@ -698,6 +757,27 @@ def parse_unit(tokens, idx, file):
             f"Unit {unit['number']}: Invalid section heading '{section_title}'",
             file
         )
+    # -------------------------
+    # Section order validation (Policy rule)
+    # -------------------------
+    expected_order = []
+
+    # NOTE: Order is fixed; inclusion depends on LTPXC
+    if True:
+        expected_order = ["theory", "lab", "x"]
+
+    # Filter expected order based on what exists in this unit
+    expected_order = [
+        s for s in expected_order
+        if unit[s] is not None
+    ]
+
+    if seen_sections != expected_order:
+        error(
+            f"Unit {unit['number']} section order invalid. "
+            f"Expected {expected_order}, found {seen_sections}",
+            file
+        )
 
     return unit, i
 
@@ -709,7 +789,7 @@ def emit_latex(courses):
     out = []
     for c in courses:
         
-        out.append(f"\\BeginCourse{{{c['code']}}}{{{c['title']}}}{{{c['ltpxc']}}}")
+        out.append(f"\\BeginCourse{{{c['code']}}}{{{c['title']}}}{{{c['ltpxc']}}}{{{c['prerequisite'] if c['prerequisite'] else 'None'  }}}")
 
         out.append("\\CourseObjectives{")
         for o in c["objectives"]:
@@ -787,8 +867,8 @@ def main():
         try:
             text = md_file.read_text(encoding="utf-8")
             tokens = parse_markdown(text)
-            title, code, ltpc = extract_course_header(tokens, md_file.name)
-            course = build_course(tokens, md_file.name, title, code, ltpc)
+            title, code, ltpc, prerequisite = extract_course_header(tokens, md_file.name, )
+            course = build_course(tokens, md_file.name, title, code, ltpc, prerequisite)
             courses.append(course)
         except SyllabusError as e:
             print(f"\nERROR:\n{e}")
