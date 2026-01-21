@@ -1,4 +1,3 @@
-# build_body_from_md.py
 
 from pathlib import Path
 from markdown_it import MarkdownIt
