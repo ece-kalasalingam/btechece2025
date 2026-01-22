@@ -52,13 +52,35 @@ X_HDR_RE = re.compile(
     r"^X-Activity\s*\(\s*(\d+)\s*Hours\s*\)$",
     re.IGNORECASE
 )
+def get_next_inline_content(tokens, start_idx, limit_idx=None):
+    """
+    Safely finds the next 'inline' token content without assuming its position.
+    """
+    if limit_idx is None:
+        limit_idx = len(tokens)
+        
+    for j in range(start_idx, limit_idx):
+        if tokens[j].type == "inline":
+            return tokens[j].content.strip(), j
+    return None, start_idx
 
-def parse_ltpxc(ltpxc: str, file: str) -> tuple[int, int, int, int, int]:
+def parse_ltpxc(ltpxc: str, file: str) -> tuple[int, int, int, int, Fraction]:
     try:
-        L, T, P, X, C = map(int, ltpxc.split("-"))
+        parts = ltpxc.split("-")
+        if len(parts) != 5:
+            raise ValueError
+
+        L = int(parts[0])
+        T = int(parts[1])
+        P = int(parts[2])
+        X = int(parts[3])
+        C = Fraction(parts[4])   # exact credit
+
         return L, T, P, X, C
+
     except Exception:
         error(f"Invalid LTPXC format: '{ltpxc}'", file)
+
 
 def validate_colon_bullet(text, file):
     # Must have at least one colon
@@ -91,46 +113,173 @@ def validate_colon_bullet(text, file):
 
     return topic, subtopics
 
-def tex_safe(text):
-    """Escapes common LaTeX special characters."""
-    if not text:
-        return ""
-    
-    # Define mappings for characters that crash LaTeX
-    # Note: We do NOT escape $ here because you use it for Math mode
-    replacements = {
-        "&": r"\&",
-        "%": r"\%",
-        "_": r"\_",
-        "#": r"\#",
-        "{": r"\{",
-        "}": r"\}",
+def tex_safe(text: str) -> str:
+    """Escapes standard LaTeX reserved characters."""
+    # Order matters: escape backslash first, then others
+    chars = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\textasciicircum{}',
     }
+    # We use a regex to replace these characters
+    return "".join(chars.get(c, c) for c in text)
+
+def robust_tex_sanitize(line: str) -> str:
+    """
+    Partitions a line into math and non-math segments to 
+    sanitize reserved characters outside of math mode.
+    """
+    if "$" not in line:
+        return tex_safe(line)
+
+    # Split the line by math blocks ($...$)
+    # This regex captures the math blocks including the delimiters
+    parts = re.split(r'(\$.*?\$)', line)
     
-    for char, safe_version in replacements.items():
-        text = text.replace(char, safe_version)
-    return text
+    sanitized_parts = []
+    for part in parts:
+        if part.startswith("$") and part.endswith("$"):
+            # This is a math block, keep it as is
+            sanitized_parts.append(part)
+        else:
+            # This is text outside math, escape reserved characters
+            # Note: We manually avoid escaping '$' here because it's handled by split
+            sanitized_parts.append(tex_safe(part))
+            
+    return "".join(sanitized_parts)
+
+ALLOWED_ARTICULATION_VALUES = {"3", "2", "1", "-"}
+
+def normalize_value(v, file):
+    v = v.strip()
+    if v not in ALLOWED_ARTICULATION_VALUES:
+        error(
+            f"Invalid articulation value '{v}'. Allowed: 3, 2, 1, -",
+            file
+        )
+    return None if v == "-" else int(v)
+
+
+def read_programme_details(path: Path, file: str):
+    if not path.exists():
+        error(f"Programme details file not found: {path}", file)
+
+    text = path.read_text(encoding="utf-8")
+    tokens = parse_markdown(text)
+
+    programme = {
+        "NBA_PO": [],
+        "PSO": [],
+        "ABET_SO": []
+    }
+
+    i = 0
+    current_section = None
+
+    while i < len(tokens):
+        t = tokens[i]
+
+        # Detect section headers
+        if t.type == "heading_open" and t.tag == "h2":
+            # FIXED: Use the helper to safely retrieve the title regardless of formatting
+            title, title_idx = get_next_inline_content(tokens, i + 1)
+            
+            if not title:
+                i += 1
+                continue
+
+            if title == "NBA Programme Outcomes":
+                current_section = "NBA_PO"
+            elif title == "Programme Specific Outcomes":
+                current_section = "PSO"
+            elif title == "ABET Student Outcomes":
+                current_section = "ABET_SO"
+            else:
+                current_section = None
+
+            i = title_idx # Advance pointer to the content found
+            continue
+
+        # Collect bullet items
+        if current_section and t.type == "list_item_open":
+            content, content_idx = get_next_inline_content(tokens, i + 1)
+            if content:
+                programme[current_section].append(content)
+                i = content_idx 
+                continue
+
+        i +=1
+
+    # -------------------------
+    # Validation (strict)
+    # -------------------------
+
+    def validate_sequence(items, prefix, section):
+        numbers = []
+        for item in items:
+            m = re.match(rf"^{prefix}(\d+)\s*:", item)
+            if not m:
+                error(
+                    f"{section}: Invalid outcome format: '{item}'",
+                    file
+                )
+            numbers.append(int(m.group(1)))
+
+        if numbers != list(range(1, len(numbers) + 1)):
+            error(
+                f"{section}: Invalid numbering sequence {numbers}",
+                file
+            )
+
+    if programme["NBA_PO"]:
+        validate_sequence(programme["NBA_PO"], "PO", "NBA Programme Outcomes")
+
+    if programme["PSO"]:
+        validate_sequence(programme["PSO"], "PSO", "Programme Specific Outcomes")
+
+    if programme["ABET_SO"]:
+        validate_sequence(programme["ABET_SO"], "SO", "ABET Student Outcomes")
+
+    return programme
+
 
 def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
     title = None
-    code = None
-    ltpxc = None
-    prerequisite = None
     metadata_blob = []
 
-    for i, t in enumerate(md_tokens):
-        # Course title (H1)
-        if t.type == "heading_open" and t.tag == "h1":
-            title = md_tokens[i + 1].content.strip()
-        # Metadata
-        if t.type == "paragraph_open":
-            metadata_blob.append(md_tokens[i + 1].content)
-        # Stop early once header section ends
+    i = 0
+    while i < len(md_tokens):
+        t = md_tokens[i]
+        
+        # Stop early once header section ends (H2 starts)
         if t.type == "heading_open" and t.tag == "h2":
             break
+            
+        # Course title (H1) - Standardized Detection
+        if t.type == "heading_open" and t.tag == "h1":
+            content, next_idx = get_next_inline_content(md_tokens, i + 1)
+            if content:
+                title = content
+                i = next_idx # Advance pointer
+        
+        # Metadata paragraphs
+        if t.type == "paragraph_open":
+            content, next_idx = get_next_inline_content(md_tokens, i + 1)
+            if content:
+                metadata_blob.append(content)
+                i = next_idx # Advance pointer
+        
+        i += 1
 
     if not title:
         error("Missing course title (H1 heading)", file)
+        
     full_text = "\n".join(metadata_blob)
     # -------------------------
     # Semantic key-based extraction
@@ -140,26 +289,23 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
         full_text,
         re.IGNORECASE
     )
-
     if code_match is None:
         error("Missing Course Code", file)
-
     code = code_match.group(1).strip()
+
     prereq_match = re.search(
         r"Pre-?requisite\s*:\s*([^\n]+)",
         full_text,
         re.IGNORECASE
     )
-
     prerequisite = prereq_match.group(1).strip() if prereq_match else None
 
-
     ltpxc_match = re.search(
-        r"L\s*-\s*T\s*-\s*P\s*-\s*X\s*-\s*C\s*:\s*(\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+)",
+        r"L\s*-\s*T\s*-\s*P\s*-\s*X\s*-\s*C\s*:\s*"
+        r"(\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+\s*-\s*\d+(?:\.\d+)?)",
         full_text,
         re.IGNORECASE
     )
-    
     if ltpxc_match is None:
         error("Missing L-T-P-X-C information", file)
 
@@ -172,7 +318,7 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
 # Semantic Model Builders
 # -------------------------
 
-def build_course(md_tokens, file, title, code, ltpxc, prerequisite):
+def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_details):
     course = {
         "title": title,
         "code": code,
@@ -182,34 +328,99 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite):
         "outcomes": [],
         "units": []
     }
+    course["articulation"] = {}
 
     i = 0
     while i < len(md_tokens):
         t = md_tokens[i]
-        # Objectives
-        if t.type == "heading_open" and md_tokens[i + 1].content == "Course Objectives":
-            i = parse_simple_list(md_tokens, i + 2, course["objectives"], file)
+        
+        if t.type == "heading_open":
+            # Use the helper to get the title regardless of token padding
+            section_title, title_idx = get_next_inline_content(md_tokens, i + 1)
+            
+            if section_title == "Course Objectives":
+                i = parse_simple_list(md_tokens, title_idx + 1, course["objectives"], file)
+                continue
 
-        # Outcomes
-        if t.type == "heading_open" and md_tokens[i + 1].content == "Course Outcomes":
-            i = parse_outcomes(md_tokens, i + 2, course["outcomes"], file)
+            if section_title == "Course Outcomes":
+                i = parse_outcomes(md_tokens, title_idx + 1, course["outcomes"], file)
+                continue
 
-        # Units
-        if t.type == "heading_open" and md_tokens[i + 1].content.startswith("Unit"):
-            unit_data, next_idx = parse_unit(md_tokens, i, file)
-            course["units"].append(unit_data)
-            i = next_idx
-            continue
-
+            if section_title.startswith("Unit"):
+                unit_data, next_idx = parse_unit(md_tokens, i, file)
+                course["units"].append(unit_data)
+                i = next_idx
+                continue
         i += 1
 
     if not course["title"] or not course["code"]:
         error("Missing course title or course code", file)
+    
+    if not course["outcomes"]:
+        error("Course Outcomes must be defined before articulation matrices", file)
+    expected_cos = [f"CO{i+1}" for i in range(len(course["outcomes"]))]
+    i = 0
+    while i < len(md_tokens):
+        t = md_tokens[i]
+        if t.type == "heading_open":
+            # Standardized detection for articulation headers
+            section_title, title_idx = get_next_inline_content(md_tokens, i + 1)
+            
+            if not section_title:
+                i += 1
+                continue
+
+            section_title = section_title.replace("–", "-")
+            
+            if section_title.startswith("CO-"):
+                if not course["outcomes"]:
+                    error(f"Articulation matrix '{section_title}' appears before Course Outcomes", file)
+
+                # Determine which mapping to parse
+                if section_title == "CO-NBA Programme Outcomes Mapping":
+                    expected_cols = [f"PO{j+1}" for j in range(len(programme_details["NBA_PO"]))]
+                    mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
+                    course["articulation"]["NBA_PO"] = mapping
+                    i = next_idx
+                    continue
+
+                if section_title == "CO-Programme Specific Outcomes Mapping":
+                    expected_cols = [f"PSO{j+1}" for j in range(len(programme_details["PSO"]))]
+                    mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
+                    course["articulation"]["PSO"] = mapping
+                    i = next_idx
+                    continue
+
+                if section_title == "CO-ABET Student Outcomes Mapping":
+                    expected_cols = [f"SO{j+1}" for j in range(len(programme_details["ABET_SO"]))]
+                    mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
+                    course["articulation"]["ABET_SO"] = mapping
+                    i = next_idx
+                    continue
+        i += 1
 
     # -------------------------
     # Presence validation
     # -------------------------
     L, T, P, X, C = parse_ltpxc(course["ltpxc"], file)
+    expected_order = []
+    if (L + T) > 0:
+        expected_order.append("theory")
+    if P > 0:
+        expected_order.append("lab")
+    if X > 0:
+        expected_order.append("x")
+
+    for u in course["units"]:
+        actual = u["section_order"]
+        expected = [s for s in expected_order if u[s] is not None]
+
+        if actual != expected:
+            error(
+                f"Unit {u['number']} section order invalid. "
+                f"Expected {expected}, found {actual}",
+                file
+            )
 
     total_theory = 0
     total_lab = 0
@@ -351,22 +562,34 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite):
 
     computed_C = L_f + T_f + (P_f / 2) + (X_f / 3)
 
-    # Parse declared C exactly (e.g., "4.25" → Fraction(17,4))
-    try:
-        C_f = Fraction(C)
-    except Exception:
-        error(f"Invalid credit value C = {C}", file)
-
-    if computed_C != C_f:
+    if computed_C != C:
         error(
-            f"Credit mismatch: expected C = {C_f}, "
+            f"Credit mismatch: expected C = {C}, "
             f"but L+T+(P/2)+(X/3) = {computed_C}",
+            file
+        )
+    # -------------------------
+    # Articulation existence check (course-level)
+    # -------------------------
+    #required = {"NBA_PO", "PSO", "ABET_SO"}
+    required = set()
+    if programme_details["NBA_PO"]:
+        required.add("NBA_PO")
+    if programme_details["PSO"]:
+        required.add("PSO")
+    if programme_details["ABET_SO"]:
+        required.add("ABET_SO")
+    missing = required - set(course["articulation"])
+
+    if missing:
+        error(
+            f"Missing articulation matrix/matrices: {sorted(missing)}",
             file
         )
 
     return course
 
-
+"""
 def parse_simple_list(tokens, start, target, file):
     i = start
     while i < len(tokens) and tokens[i].type != "heading_open":
@@ -375,25 +598,147 @@ def parse_simple_list(tokens, start, target, file):
             target.append(text)
         i += 1
     return i
-
+"""
+def parse_simple_list(tokens, start, target, file):
+    i = start
+    # Stop if we hit a new heading or the end of the tokens
+    while i < len(tokens) and tokens[i].type != "heading_open":
+        if tokens[i].type == "list_item_open":
+            # Find the next 'inline' token before the next 'list_item_close'
+            content, next_idx = get_next_inline_content(tokens, i + 1)
+            if content:
+                target.append(content)
+                i = next_idx # Advance to where we found the content
+        i += 1
+    return i
 
 def parse_outcomes(tokens, start, target, file):
     i = start
     while i < len(tokens) and tokens[i].type != "heading_open":
         if tokens[i].type == "list_item_open":
-            text = tokens[i + 2].content.strip()
-            if not CO_RE.match(text):
-                error(f"Invalid course outcome format: '{text}'", file)
-            target.append(text)
+            # Safely find the next 'inline' token content
+            content, next_idx = get_next_inline_content(tokens, i + 1)
+            if content:
+                if not CO_RE.match(content):
+                    error(f"Invalid course outcome format: '{content}'", file)
+                target.append(content)
+                i = next_idx  # Advance the pointer to the content we found
         i += 1
     return i
 
+def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, file):
+    """
+    Robustly parses a Markdown table into a mapping dictionary using content-seeking.
+    """
+    i = start_idx
+
+    if i >= len(tokens) or tokens[i].type != "table_open":
+        error("Expected articulation table", file)
+
+    i += 1  # Move past table_open
+
+    # -------------------------
+    # 1. Parse Header Row
+    # -------------------------
+    headers = []
+    # Seek the end of the table head
+    while i < len(tokens) and tokens[i].type != "thead_close":
+        if tokens[i].type == "th_open":
+            # Use helper to find text regardless of formatting (bold, etc.)
+            content, next_idx = get_next_inline_content(tokens, i + 1)
+            if content:
+                headers.append(content)
+                i = next_idx
+        i += 1
+
+    if not headers:
+        error("Articulation table has no headers", file)
+
+    if headers[0] != "CO":
+        error("First articulation column must be 'CO'", file)
+
+    if headers[1:] != expected_columns:
+        error(
+            f"Articulation columns mismatch.\n"
+            f"Expected: {expected_columns}\n"
+            f"Found: {headers[1:]}",
+            file
+        )
+
+    # -------------------------
+    # 2. Parse Body Rows
+    # -------------------------
+    # Seek the table body
+    while i < len(tokens) and tokens[i].type != "tbody_open":
+        i += 1
+    
+    if i < len(tokens):
+        i += 1 # Move past tbody_open
+
+    mapping = {}
+    seen_cos = set()
+
+    while i < len(tokens) and tokens[i].type != "tbody_close":
+        if tokens[i].type == "tr_open":
+            cells = []
+            # Parse individual cells in the row
+            while i < len(tokens) and tokens[i].type != "tr_close":
+                if tokens[i].type == "td_open":
+                    content, next_idx = get_next_inline_content(tokens, i + 1)
+                    # Allow empty cells for "-" values
+                    cells.append(content if content else "")
+                    if content:
+                        i = next_idx
+                i += 1
+            
+            # Process the row content
+            if cells:
+                co = cells[0]
+                if co not in expected_cos:
+                    error(f"Unexpected CO in articulation table: {co}", file)
+
+                if co in seen_cos:
+                    error(f"Duplicate CO row in articulation table: {co}", file)
+
+                if len(cells[1:]) != len(expected_columns):
+                    error(
+                        f"Incorrect column count for {co} in articulation table. "
+                        f"Expected {len(expected_columns)}, found {len(cells[1:])}",
+                        file
+                    )
+
+                mapping[co] = {}
+                for col, val in zip(expected_columns, cells[1:]):
+                    mapping[co][col] = normalize_value(val, file)
+
+                seen_cos.add(co)
+        i += 1
+
+    # Final pointer advancement
+    while i < len(tokens) and tokens[i].type != "table_close":
+        i += 1
+    i += 1 # Move past table_close
+
+    # -------------------------
+    # 3. Validation
+    # -------------------------
+    if set(expected_cos) != seen_cos:
+        error(
+            f"Missing CO rows in articulation table.\n"
+            f"Expected: {expected_cos}\n"
+            f"Found: {sorted(seen_cos)}",
+            file
+        )
+
+    return mapping, i
 
 def parse_unit(tokens, idx, file):
     # -------------------------
     # Parse Unit H2 heading
     # -------------------------
-    header = tokens[idx + 1].content.strip()
+    header, content_idx = get_next_inline_content(tokens, idx + 1)
+    if not header:
+        error("Unit heading has no content", file)
     
     unit_re = re.compile(
         r"^Unit\s+(\d+):\s+(.*)$"
@@ -414,15 +759,29 @@ def parse_unit(tokens, idx, file):
         "lab": None,
         "x": None
     }
-    i=idx
+    # 1. Skip everything until the Unit H2 heading actually closes
+    i = content_idx
+    while i < len(tokens) and tokens[i].type != "heading_close":
+        i += 1
+    
+    # 2. Look for the FIRST H3 heading, skipping any noise (newlines, spaces, etc.)
+    # This replaces your old 'i += 1' and 'if tokens[i].type != "heading_open"' block
+    while i < len(tokens):
+        # If we find an H3, we are ready to start the section parser
+        if tokens[i].type == "heading_open" and tokens[i].tag == "h3":
+            break 
+            
+        # If we hit another H2 before finding an H3, the unit is empty
+        if tokens[i].type == "heading_open" and tokens[i].tag == "h2":
+            error(f"Unit {unit['number']} has no H3 sections (Theory/Lab/X-Activity)", file)
+        
+        i += 1
+    #i=idx
     seen_sections = []
     while i < len(tokens) and tokens[i].type != "heading_close":
         i += 1
         if i >= len(tokens):
-            error(
-                f"Unit {unit['number']}: Unterminated heading",
-                file
-            )
+            error(f"Unit {unit['number']}: Heading '{header}' is unterminated (missing closing # tags or newline)", file)
 
     i += 1  # move past heading_close
     # Only H3 headings allowed inside a Unit at first
@@ -430,8 +789,7 @@ def parse_unit(tokens, idx, file):
         found = tokens[i].tag if hasattr(tokens[i], "tag") else tokens[i].type
         error(
             f"Unit {unit['number']}: Unexpected content. \n"
-            f"Existing is a {found} at \n"
-            f'{tokens[i + 1].content.strip()} \n'
+            f"Existing is a {found} \n"
             f"Expected a section heading (H3).",
             file
         )
@@ -441,18 +799,37 @@ def parse_unit(tokens, idx, file):
     # -------------------------
     while i < len(tokens):
 
-        # Stop when next Unit starts
         if tokens[i].type == "heading_open" and tokens[i].tag == "h2":
             break
 
-        section_title = tokens[i + 1].content.strip()
+        # Seek the title of the H3 section
+        section_title, title_idx = get_next_inline_content(tokens, i + 1)
+        if not section_title:
+            i += 1
+            continue
+
+        # Use the found section_title for regex matching
+        m_theory = THEORY_HDR_RE.match(section_title)
+        m_lab = LAB_HDR_RE.match(section_title)
+        m_x = X_HDR_RE.match(section_title)
+        
+        # Move i to the end of the heading to begin parsing content
+        i = title_idx
+        while i < len(tokens) and tokens[i].type != "heading_close":
+            i += 1
+        i += 1 # move past heading_close
 
         # -------------------------
         # Theory Content section
         # -------------------------
-        m_theory = THEORY_HDR_RE.match(section_title)
         if m_theory:
             seen_sections.append("theory")
+            if "theory" in seen_sections[:-1]:
+                error(
+                    f"Unit {unit['number']}: Theory Content section repeated or out of order",
+                    file
+                )
+
             if unit["theory"] is not None:
                 error(
                     f"Unit {unit['number']}: Duplicate Theory Content section",
@@ -466,10 +843,7 @@ def parse_unit(tokens, idx, file):
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
                 if i >= len(tokens):
-                    error(
-                        f"Unit {unit['number']}: Unterminated heading",
-                        file
-                    )
+                    error(f"Unit {unit['number']}: Section '{section_title}' is unterminated (missing closing # tags or newline)", file)
 
             i += 1  # move past heading_close
             # -------------------------
@@ -531,9 +905,10 @@ def parse_unit(tokens, idx, file):
         # -------------------------
         # Laboratory Experiments section
         # -------------------------
-        m_lab = LAB_HDR_RE.match(section_title)
         if m_lab:
             seen_sections.append("lab")
+            if "lab" in seen_sections[:-1]:
+                error(f"Unit {unit['number']}: Laboratory Experiments section repeated or out of order", file)
             if unit["lab"] is not None:
                 error(f"Unit {unit['number']}: Duplicate Laboratory Experiments section", file)
 
@@ -542,7 +917,8 @@ def parse_unit(tokens, idx, file):
                 "experiments": []
             }
 
-            # Move past H3 heading (robust)
+            # Move past H3 heading robustly using the helper
+            _, i = get_next_inline_content(tokens, i) 
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
             i += 1  # past heading_close
@@ -556,94 +932,84 @@ def parse_unit(tokens, idx, file):
                     break
 
                 # Skip non-semantic noise between experiments
-                if tokens[i].type in ("softbreak", "hardbreak"):
+                if tokens[i].type in ("softbreak", "hardbreak", "paragraph_open", "paragraph_close"):
                     i += 1
                     continue
 
-                # Expect experiment title (H4)
-                if tokens[i].type != "heading_open" or tokens[i].tag != "h4":
-                    error(f"Unit {unit['number']}: Laboratory Experiments must contain H4 experiment headings", file)
+                # Robustly find experiment title (H4)
+                if tokens[i].type == "heading_open" and tokens[i].tag == "h4":
+                    exp_title, title_idx = get_next_inline_content(tokens, i + 1)
+                    if not exp_title:
+                        error(f"Unit {unit['number']}: Malformed H4 experiment heading", file)
+                    
+                    # Move past H4 heading
+                    i = title_idx
+                    while i < len(tokens) and tokens[i].type != "heading_close":
+                        i += 1
+                    i += 1  # past heading_close
 
-                if i + 1 >= len(tokens) or tokens[i + 1].type != "inline":
-                    error(f"Unit {unit['number']}: Malformed H4 experiment heading", file)
+                    # -------------------------
+                    # Collect experiment description
+                    # -------------------------
+                    description = []
+                    while i < len(tokens):
+                        # Stop if any new heading starts
+                        if tokens[i].type == "heading_open":
+                            break
+                        
+                        # Use the helper to seek the next piece of actual text
+                        content, next_idx = get_next_inline_content(tokens, i)
+                        
+                        if content:
+                            # Detect if this content is inside a bullet list to add a prefix
+                            is_list_item = False
+                            # Look back slightly to see if we are inside a list item
+                            check_idx = i
+                            while check_idx < next_idx:
+                                if tokens[check_idx].type == "list_item_open":
+                                    is_list_item = True
+                                    break
+                                check_idx += 1
+                            
+                            prefix = "- " if is_list_item else ""
+                            description.append(f"{prefix}{content}")
+                            i = next_idx # Advance past the found content
+                        else:
+                            i += 1
+
+                    if not description:
+                        error(f"Unit {unit['number']}: Experiment '{exp_title}' has no description", file)
+
+                    unit["lab"]["experiments"].append({
+                        "title": exp_title,
+                        "description": description
+                    })
+                    continue
                 
-                exp_title = tokens[i + 1].content.strip()
-
-                # Move past H4 heading (robust)
-                while i < len(tokens) and tokens[i].type != "heading_close":
-                    i += 1
-                i += 1  # past heading_close
-
-                # -------------------------
-                # Collect experiment description
-                # -------------------------
-                description = []
-                while i < len(tokens):
-                    # Stop if a new heading starts
-                    if tokens[i].type == "heading_open":
-                        break
-
-                    # Skip breaks and closers
-                    if tokens[i].type in ("paragraph_close", "softbreak", "hardbreak", "list_item_open", "list_item_close", "bullet_list_close"):
-                        i += 1
-                        continue
-
-                    # Paragraph content
-                    if tokens[i].type == "paragraph_open":
-                        i += 1
-                        while i < len(tokens) and tokens[i].type != "inline":
-                            i += 1
-                        if i < len(tokens):
-                            description.append(tokens[i].content.strip())
-                        while i < len(tokens) and tokens[i].type != "paragraph_close":
-                            i += 1
-                        i += 1 # past paragraph_close
-                        continue
-
-                    # Bullet list inside description
-                    if tokens[i].type == "bullet_list_open":
-                        i += 1
-                        while i < len(tokens) and tokens[i].type != "bullet_list_close":
-                            if tokens[i].type == "inline":
-                                description.append(f"- {tokens[i].content.strip()}")
-                            i += 1
-                        i += 1  # past bullet_list_close
-                        continue
-
-                    # If none of the above matched, it's an error
-                    error(f"Unit {unit['number']}: Invalid content inside Laboratory Experiment description", file)
-
-                if not description:
-                    error(f"Unit {unit['number']}: Experiment '{exp_title}' has no description", file)
-
-                unit["lab"]["experiments"].append({
-                    "title": exp_title,
-                    "description": description
-                })
+                # If we encounter something that isn't a heading or noise, skip it or handle it
+                i += 1
 
             if not unit["lab"]["experiments"]:
                 error(f"Unit {unit['number']}: Laboratory Experiments section has no experiments", file)
 
             continue
-        
         # -------------------------
         # X-Activity section
         # -------------------------
-        m_x = X_HDR_RE.match(section_title)
         if m_x:
             seen_sections.append("x")
+            if "x" in seen_sections[:-1]:
+                error(f"Unit {unit['number']}: X-Activity section repeated or out of order", file)
             if unit["x"] is not None:
-                error(
-                    f"Unit {unit['number']}: Duplicate X-Activity section",
-                    file
-                )
+                error(f"Unit {unit['number']}: Duplicate X-Activity section", file)
 
             unit["x"] = {
                 "hours": int(m_x.group(1)),
                 "components": []
             }
 
-            # Move past H3 heading (robust)
+            # Move past H3 heading safely using the helper
+            _, i = get_next_inline_content(tokens, i)
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
             i += 1  # past heading_close
@@ -652,104 +1018,61 @@ def parse_unit(tokens, idx, file):
             # Parse H4 component blocks
             # -------------------------
             while i < len(tokens):
-
-                # Stop if next H3 or next Unit starts
                 if tokens[i].type == "heading_open" and tokens[i].tag in ("h3", "h2"):
                     break
 
-                # Skip non-semantic noise
-                if tokens[i].type in ("softbreak", "hardbreak"):
+                if tokens[i].type in ("softbreak", "hardbreak", "paragraph_open", "paragraph_close"):
                     i += 1
                     continue
 
-                # Expect component title (H4)
-                if tokens[i].type != "heading_open" or tokens[i].tag != "h4":
-                    error(
-                        f"Unit {unit['number']}: X-Activity must contain H4 component headings",
-                        file
-                    )
-
-                if i + 1 >= len(tokens) or tokens[i + 1].type != "inline":
-                    error(
-                        f"Unit {unit['number']}: Malformed H4 component heading",
-                        file
-                    )
-
-                comp_title = tokens[i + 1].content.strip()
-
-                # Move past H4 heading
-                while i < len(tokens) and tokens[i].type != "heading_close":
-                    i += 1
-                i += 1  # past heading_close
-
-                # -------------------------
-                # Collect component description
-                # -------------------------
-                description = []
-
-                while i < len(tokens):
-
-                    # Stop if a new heading starts
-                    if tokens[i].type == "heading_open":
-                        break
-
-                    # Skip noise
-                    if tokens[i].type in (
-                        "paragraph_close",
-                        "softbreak",
-                        "hardbreak",
-                        "list_item_open",
-                        "list_item_close",
-                    ):
+                if tokens[i].type == "heading_open" and tokens[i].tag == "h4":
+                    comp_title, title_idx = get_next_inline_content(tokens, i + 1)
+                    if not comp_title:
+                        error(f"Unit {unit['number']}: Malformed H4 component heading", file)
+                    
+                    i = title_idx
+                    while i < len(tokens) and tokens[i].type != "heading_close":
                         i += 1
-                        continue
+                    i += 1  # past heading_close
 
-                    # Paragraph content
-                    if tokens[i].type == "paragraph_open":
-                        i += 1
-                        while i < len(tokens) and tokens[i].type != "inline":
+                    description = []
+                    while i < len(tokens):
+                        if tokens[i].type == "heading_open":
+                            break
+                        
+                        content, next_idx = get_next_inline_content(tokens, i)
+                        if content:
+                            is_list_item = False
+                            check_idx = i
+                            while check_idx < next_idx:
+                                if tokens[check_idx].type == "list_item_open":
+                                    is_list_item = True
+                                    break
+                                check_idx += 1
+                            
+                            prefix = "- " if is_list_item else ""
+                            description.append(f"{prefix}{content}")
+                            i = next_idx 
+                        else:
                             i += 1
-                        if i < len(tokens):
-                            description.append(tokens[i].content.strip())
-                        while i < len(tokens) and tokens[i].type != "paragraph_close":
-                            i += 1
-                        i += 1
-                        continue
 
-                    # Bullet list inside component description
-                    if tokens[i].type == "bullet_list_open":
-                        i += 1
-                        while i < len(tokens) and tokens[i].type != "bullet_list_close":
-                            if tokens[i].type == "inline":
-                                description.append(f"- {tokens[i].content.strip()}")
-                            i += 1
-                        i += 1
-                        continue
+                    if not description:
+                        error(f"Unit {unit['number']}: X-Activity component '{comp_title}' has no description", file)
 
-                    error(
-                        f"Unit {unit['number']}: Invalid content inside X-Activity component description",
-                        file
-                    )
-
-                if not description:
-                    error(
-                        f"Unit {unit['number']}: X-Activity component '{comp_title}' has no description",
-                        file
-                    )
-
-                unit["x"]["components"].append({
-                    "title": comp_title,
-                    "description": description
-                })
+                    # --- FIXED: Added missing append call ---
+                    unit["x"]["components"].append({
+                        "title": comp_title,
+                        "description": description
+                    })
+                    # ----------------------------------------
+                    continue
+                
+                i += 1
 
             if not unit["x"]["components"]:
-                error(
-                    f"Unit {unit['number']}: X-Activity section has no components",
-                    file
-                )
+                error(f"Unit {unit['number']}: X-Activity section has no components", file)
 
             continue
-
         # -------------------------
         # Unknown section
         # -------------------------
@@ -757,35 +1080,36 @@ def parse_unit(tokens, idx, file):
             f"Unit {unit['number']}: Invalid section heading '{section_title}'",
             file
         )
-    # -------------------------
-    # Section order validation (Policy rule)
-    # -------------------------
-    expected_order = []
-
-    # NOTE: Order is fixed; inclusion depends on LTPXC
-    if True:
-        expected_order = ["theory", "lab", "x"]
-
-    # Filter expected order based on what exists in this unit
-    expected_order = [
-        s for s in expected_order
-        if unit[s] is not None
-    ]
-
-    if seen_sections != expected_order:
-        error(
-            f"Unit {unit['number']} section order invalid. "
-            f"Expected {expected_order}, found {seen_sections}",
-            file
-        )
-
+    unit["section_order"] = seen_sections
+   
     return unit, i
 
 # -------------------------
 # LaTeX Emission (Semantic Only)
 # -------------------------
+def emit_articulation_block(title, columns, mapping):
+    out = []
+    out.append(f"\\BeginArticulation{{{title}}}{{{len(columns)}}}")
 
-def emit_latex(courses):
+    header = "CO & " + " & ".join(columns)
+    out.append(f"\\ArticulationHeader{{{header}}}")
+
+    for co in sorted(mapping.keys(), key=lambda x: int(x[2:])):
+        row = mapping[co]
+        values = []
+        for col in columns:
+            v = row[col]
+            values.append("-" if v is None else str(v))
+        out.append(
+            "\\ArticulationRow{" +
+            f"{co} & " + " & ".join(values) +
+            "}"
+        )
+
+    out.append("\\EndArticulation")
+    return out
+
+def emit_latex(courses, programme_details):
     out = []
     for c in courses:
         
@@ -793,13 +1117,45 @@ def emit_latex(courses):
 
         out.append("\\CourseObjectives{")
         for o in c["objectives"]:
-            out.append(f"  \\COItem{{{o}}}")
+            out.append(f"  \\COBItem{{{tex_safe(o)}}}")
         out.append("}")
 
         out.append("\\CourseOutcomes{")
         for o in c["outcomes"]:
-            out.append(f"  \\COItem{{{o}}}")
+            out.append(f"  \\COItem{{{tex_safe(o)}}}")
         out.append("}")
+        # -------------------------
+        # Articulation Matrices
+        # -------------------------
+        po_cols = [f"PO{i+1}" for i in range(len(programme_details["NBA_PO"]))]
+        pso_cols = [f"PSO{i+1}" for i in range(len(programme_details["PSO"]))]
+        so_cols = [f"SO{i+1}" for i in range(len(programme_details["ABET_SO"]))]
+        if "NBA_PO" in c["articulation"]:            
+            out.extend(
+                emit_articulation_block(
+                    "CO-NBA Programme Outcomes Mapping",
+                    po_cols,
+                    c["articulation"]["NBA_PO"]
+                )
+            )
+
+        if "PSO" in c["articulation"]:
+            out.extend(
+                emit_articulation_block(
+                    "CO-Programme Specific Outcomes Mapping",
+                    pso_cols,
+                    c["articulation"]["PSO"]
+                )
+            )
+
+        if "ABET_SO" in c["articulation"]:
+            out.extend(
+                emit_articulation_block(
+                    "CO-ABET Student Outcomes Mapping",
+                    so_cols,
+                    c["articulation"]["ABET_SO"]
+                )
+            )
 
         # -------------------------
         # Units
@@ -829,7 +1185,7 @@ def emit_latex(courses):
                     for line in exp["description"]:
                         # If the line contains '$', it's math; don't sanitize it
                         # Otherwise, make it safe
-                        safe_line = line if "$" in line else tex_safe(line)
+                        safe_line = robust_tex_sanitize(line)
                         out.append(f"    \\LabDesc{{{safe_line}}}")
                     out.append("  \\EndLabExperiment")
                 out.append("\\EndLab")
@@ -841,7 +1197,7 @@ def emit_latex(courses):
                     safe_comp_title = tex_safe(comp['title'])
                     out.append(f"  \\XComponent{{{safe_comp_title}}}")
                     for line in comp["description"]:
-                        safe_line = line if "$" in line else tex_safe(line)
+                        safe_line = robust_tex_sanitize(line)
                         out.append(f"    \\XDesc{{{safe_line}}}")
                     out.append("  \\EndXComponent")
                 out.append("\\EndXActivity")
@@ -858,25 +1214,77 @@ def emit_latex(courses):
 # -------------------------
 
 def main():
-    input_dir = Path("courses_md")
-    output = Path("generated/body_md.tex")
+    # 1. Initialize error collection
+    all_errors = []
 
+    # --- Load Programme Details ---
+    try:
+        programme_details = read_programme_details(
+            Path("programme_details.md"), 
+            "programme_details.md"
+        )
+        
+        # Mandatory section checks
+        for section, key in [("NBA Programme Outcomes", "NBA_PO"), 
+                             ("Programme Specific Outcomes", "PSO"), 
+                             ("ABET Student Outcomes", "ABET_SO")]:
+            if not programme_details[key]:
+                all_errors.append(f"programme_details.md: {section} section is mandatory")
+    except SyllabusError as e:
+        all_errors.append(str(e))
+        # If programme details fail, we can't map COs, so we must stop
+        print("\n".join(all_errors))
+        sys.exit(1)
+
+    # --- Process Course Files ---
+    input_dir = Path("courses_md")
     courses = []
+
+    if not input_dir.exists():
+        print(f"Error: Directory '{input_dir}' not found.")
+        sys.exit(1)
 
     for md_file in input_dir.glob("*.md"):
         try:
             text = md_file.read_text(encoding="utf-8")
             tokens = parse_markdown(text)
-            title, code, ltpc, prerequisite = extract_course_header(tokens, md_file.name, )
-            course = build_course(tokens, md_file.name, title, code, ltpc, prerequisite)
-            courses.append(course)
+            
+            # Extract header and build course
+            title, code, ltpxc, prereq = extract_course_header(tokens, md_file.name)
+            course_data = build_course(
+                tokens, md_file.name, title, code, ltpxc, prereq, programme_details
+            )
+            
+            # Only add to list if successful
+            courses.append(course_data)
+            
         except SyllabusError as e:
-            print(f"\nERROR:\n{e}")
-            sys.exit(1)
-    output.parent.mkdir(exist_ok=True)
-    output.write_text(emit_latex(courses), encoding="utf-8")
-    print("Semantic LaTeX generated:", output)
+            # Capture error and move to next file
+            all_errors.append(str(e))
+        except Exception as e:
+            # Capture unexpected crashes to prevent loop breakage
+            all_errors.append(f"{md_file.name}: Unexpected error: {str(e)}")
 
+    # --- Final Report and Emission ---
+    if all_errors:
+        print("\n" + "="*30)
+        print(f"ERRORS FOUND ({len(all_errors)}):")
+        for err in all_errors:
+            print(f"- {err}")
+        print("="*30 + "\n")
+
+    if courses:
+        output = Path("generated/body_md.tex")
+        output.parent.mkdir(exist_ok=True)
+        
+        print(f"Generating LaTeX for {len(courses)} successful courses...")
+        output.write_text(emit_latex(courses, programme_details), encoding="utf-8")
+    else:
+        print("No valid courses found to generate LaTeX.")
+
+    # Exit with error code if any errors were collected
+    if all_errors:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
