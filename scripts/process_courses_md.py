@@ -486,8 +486,7 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
     # -------------------------
     L, T, P, X, C = parse_ltpxc(course["ltpxc"], file)
     expected_order = []
-    if (L + T) > 0:
-        expected_order.append("theory")
+    expected_order.append("theory")
     if P > 0:
         expected_order.append("lab")
     if X > 0:
@@ -515,17 +514,12 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
             total_lab += u["lab"]["hours"]
         if u["x"] is not None:
             total_x += u["x"]["hours"]
-        # ---- Theory presence ----
-    
-    if (L + T) > 0:
-        if total_theory == 0:
-            error(
-                f"Theory Content required (L+T={L+T}) but not found in any unit",
-                file
-            )
-    else:
-        if total_theory > 0:
-            error("Theory Content found but L+T = 0", file)
+    # ---- Theory presence ----
+    if total_theory == 0:
+        error(
+            f"Theory Content required (L+T={L+T}) but not found in any unit",
+            file
+        )
 
     # ---- Lab presence ----
     if P > 0:
@@ -573,9 +567,9 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
     # Per-unit component consistency (Policy rule)
     # -------------------------
     for u in course["units"]:
-        if (L + T) > 0 and u["theory"] is None:
+        if u["theory"] is None:
             error(
-                f"Unit {u['number']} missing Theory Content (L+T > 0)",
+                f"Unit {u['number']} missing Theory Content (Theory is compulsory)",
                 file
             )
 
@@ -596,7 +590,7 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
         total_topics = 0
 
         # Count only LTPXC-allowed sections
-        if (L + T) > 0 and u["theory"] is not None:
+        if u["theory"] is not None:
             total_topics += len(u["theory"]["topics"])
 
         if P > 0 and u["lab"] is not None:
