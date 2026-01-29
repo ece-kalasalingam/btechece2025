@@ -1,9 +1,77 @@
+# Implements: Syllabus DSL (see Syllabus_0DSL.md)
 from pathlib import Path
 from markdown_it import MarkdownIt
 import re
 import sys
 from typing import NoReturn
 from fractions import Fraction
+
+try:
+    from packaging.version import Version
+except ImportError:
+    print("ERROR: 'packaging' module is required for DSL policy versioning.")
+    sys.exit(1)
+
+# -------------------------
+# Curriculum Policy Level
+# -------------------------
+
+DSL_POLICY_VERSION = "1.2"   # Controlled by department, not faculty
+# Current DSL version supported by this parser
+# -------------------------
+# Curriculum Policy Parameters (DSL v1.2)
+# -------------------------
+
+POLICY_LIMITS = {
+    "theory_topics": {
+        "min": 4,
+        "max": 8,
+    },
+    "lab_experiments": {
+        "min": 1,
+        "max": 3,
+    },
+    "x_components": {
+        "min": 1,
+        "max": 3,
+    }
+}
+
+
+# -------------------------
+# Internal Semantic Model (IR) — DSL v1.1
+# -------------------------
+# -------------------------
+#
+# Objectives:
+#   list[str]
+#
+# Outcomes:
+#   list[str]            # CO<n>: <description>
+#
+# Theory Topic:
+#   tuple[str, list[str]]
+#   -> (primary_topic, [details])
+#
+# Laboratory Experiment:
+#   dict {
+#       "title": str,
+#       "description": list[str]
+#   }
+#
+# X-Activity Component:
+#   dict {
+#       "title": str,
+#       "description": list[str]
+#   }
+#
+# Articulation Matrix:
+#   dict[str, dict[str, Optional[int]]]
+#   -> CO → (PO/PSO/SO → 3|2|1|None)
+#
+# NOTE:
+# Shapes are intentionally non-uniform.
+# They reflect DSL semantics, not coding style.
 
 
 # -------------------------
@@ -55,14 +123,20 @@ X_HDR_RE = re.compile(
 def get_next_inline_content(tokens, start_idx, limit_idx=None):
     """
     Safely finds the next 'inline' token content without assuming its position.
+    Stops at structural boundaries.
     """
     if limit_idx is None:
         limit_idx = len(tokens)
         
     for j in range(start_idx, limit_idx):
+        # --- HARD STRUCTURAL STOP ---
+        # Do not cross section / unit boundaries
+        if tokens[j].type == "heading_open":
+            break
+
         if tokens[j].type == "inline":
             return tokens[j].content.strip(), j
-    return None, start_idx
+    return None, limit_idx
 
 def parse_ltpxc(ltpxc: str, file: str) -> tuple[int, int, int, int, Fraction]:
     try:
@@ -117,15 +191,16 @@ def tex_safe(text: str) -> str:
     """Escapes standard LaTeX reserved characters."""
     # Order matters: escape backslash first, then others
     chars = {
-        '&': r'\&',
-        '%': r'\%',
-        '$': r'\$',
-        '#': r'\#',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
+    '\\': r'\textbackslash{}',   # MUST be first conceptually
+    '&': r'\&',
+    '%': r'\%',
+    '$': r'\$',
+    '#': r'\#',
+    '_': r'\_',
+    '{': r'\{',
+    '}': r'\}',
+    '~': r'\textasciitilde{}',
+    '^': r'\textasciicircum{}',
     }
     # We use a regex to replace these characters
     return "".join(chars.get(c, c) for c in text)
@@ -266,16 +341,17 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
             content, next_idx = get_next_inline_content(md_tokens, i + 1)
             if content:
                 title = content
-                i = next_idx # Advance pointer
+                i = next_idx # Advance pointer to inline content
         
         # Metadata paragraphs
         if t.type == "paragraph_open":
             content, next_idx = get_next_inline_content(md_tokens, i + 1)
             if content:
                 metadata_blob.append(content)
-                i = next_idx # Advance pointer
+                i = next_idx # Advance pointer to inline content
         
         i += 1
+        # NOTE: `i` may be reassigned above; this increment applies only if not jumped
 
     if not title:
         error("Missing course title (H1 heading)", file)
@@ -317,6 +393,10 @@ def extract_course_header(md_tokens, file) -> tuple[str, str, str, str | None]:
 # -------------------------
 # Semantic Model Builders
 # -------------------------
+# NOTE:
+# Do NOT normalize internal representations into a single schema.
+# Theory, Lab, X, Outcomes, and Articulation are semantically different
+# DSL constructs. Structural uniformity would reduce clarity.
 
 def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_details):
     course = {
@@ -337,6 +417,9 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
         if t.type == "heading_open":
             # Use the helper to get the title regardless of token padding
             section_title, title_idx = get_next_inline_content(md_tokens, i + 1)
+            if section_title is None:
+                i += 1
+                continue
             
             if section_title == "Course Objectives":
                 i = parse_simple_list(md_tokens, title_idx + 1, course["objectives"], file)
@@ -349,8 +432,8 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
             if section_title.startswith("Unit"):
                 unit_data, next_idx = parse_unit(md_tokens, i, file)
                 course["units"].append(unit_data)
-                i = next_idx
-                continue
+                i = next_idx    # jump to inline content
+                continue        # skip linear increment
         i += 1
 
     if not course["title"] or not course["code"]:
@@ -381,22 +464,24 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
                     expected_cols = [f"PO{j+1}" for j in range(len(programme_details["NBA_PO"]))]
                     mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
                     course["articulation"]["NBA_PO"] = mapping
-                    i = next_idx
-                    continue
+                    i = next_idx  # jump to inline content
+                    continue      # skip linear increment
+
 
                 if section_title == "CO-Programme Specific Outcomes Mapping":
                     expected_cols = [f"PSO{j+1}" for j in range(len(programme_details["PSO"]))]
                     mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
                     course["articulation"]["PSO"] = mapping
-                    i = next_idx
-                    continue
+                    i = next_idx  # jump to inline content
+                    continue      # skip linear increment
+
 
                 if section_title == "CO-ABET Student Outcomes Mapping":
                     expected_cols = [f"SO{j+1}" for j in range(len(programme_details["ABET_SO"]))]
                     mapping, next_idx = parse_articulation_table(md_tokens, title_idx + 1, expected_cols, expected_cos, file)
                     course["articulation"]["ABET_SO"] = mapping
-                    i = next_idx
-                    continue
+                    i = next_idx  # jump to inline content
+                    continue      # skip linear increment
         i += 1
 
     # -------------------------
@@ -468,6 +553,10 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
             error("X-Activity found but X = 0", file)
 
     # Number of units check
+    # POLICY INVARIANT (R2025):
+    # Unit count is FIXED.
+    # Changing this requires curriculum regulation changes,
+    # not a parser tweak.
     if len(course["units"]) != 5:
         error(
             f"Invalid number of units: expected 5, found {len(course['units'])}",
@@ -527,7 +616,10 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
     
     # -------------------------
     # Hours Consistency Check
-    # -------------------------    
+    # -------------------------  
+    # POLICY INVARIANT:
+    # 15 hours per L/T/P/X credit is fixed by regulation.
+    # Do NOT infer hours dynamically.  
     expected_theory = 15 * (L + T)
     expected_lab = 15 * P
     expected_x = 15 * X
@@ -560,6 +652,9 @@ def build_course(md_tokens, file, title, code, ltpxc, prerequisite, programme_de
     P_f = Fraction(P, 1)
     X_f = Fraction(X, 1)
 
+    # CREDIT MATH IS EXACT BY REGULATION.
+    # Fractions are intentional.
+    # Never convert this to float or approximate.
     computed_C = L_f + T_f + (P_f / 2) + (X_f / 3)
 
     if computed_C != C:
@@ -609,6 +704,7 @@ def parse_simple_list(tokens, start, target, file):
             if content:
                 target.append(content)
                 i = next_idx # Advance to where we found the content
+                # NOTE: `i` may be reassigned above; this increment applies only if not jumped
         i += 1
     return i
 
@@ -623,9 +719,12 @@ def parse_outcomes(tokens, start, target, file):
                     error(f"Invalid course outcome format: '{content}'", file)
                 target.append(content)
                 i = next_idx  # Advance the pointer to the content we found
+                # NOTE: `i` may be reassigned above; this increment applies only if not jumped
         i += 1
     return i
 
+# Pointer policy: state-machine parser.
+# `i` advances by explicit jumps between table regions.
 def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, file):
     """
     Robustly parses a Markdown table into a mapping dictionary using content-seeking.
@@ -649,6 +748,7 @@ def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, 
             if content:
                 headers.append(content)
                 i = next_idx
+                # NOTE: `i` may be reassigned above; this increment applies only if not jumped
         i += 1
 
     if not headers:
@@ -689,6 +789,7 @@ def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, 
                     cells.append(content if content else "")
                     if content:
                         i = next_idx
+                        # NOTE: `i` may be reassigned above; this increment applies only if not jumped
                 i += 1
             
             # Process the row content
@@ -709,7 +810,7 @@ def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, 
 
                 mapping[co] = {}
                 for col, val in zip(expected_columns, cells[1:]):
-                    mapping[co][col] = normalize_value(val, file)
+                    mapping[co][col] = normalize_value(val, file) # Optional[int]
 
                 seen_cos.add(co)
         i += 1
@@ -732,7 +833,15 @@ def parse_articulation_table(tokens, start_idx, expected_columns, expected_cos, 
 
     return mapping, i
 
+# STRUCTURAL GRAMMAR — DO NOT RELAX
+# This function enforces accreditation-mandated structure.
+# Token-position logic is intentional.
+# Replacing this with content scanning WILL break invariants.
+# Pointer policy: this function uses STRUCTURAL parsing.
+# Multiple nested loops advance `i`; do not add implicit `i += 1`.
+
 def parse_unit(tokens, idx, file):
+
     # -------------------------
     # Parse Unit H2 heading
     # -------------------------
@@ -759,6 +868,8 @@ def parse_unit(tokens, idx, file):
         "lab": None,
         "x": None
     }
+    allowed_order = ["theory", "lab", "x"]
+
     # 1. Skip everything until the Unit H2 heading actually closes
     i = content_idx
     while i < len(tokens) and tokens[i].type != "heading_close":
@@ -777,6 +888,7 @@ def parse_unit(tokens, idx, file):
         
         i += 1
     #i=idx
+    """
     seen_sections = []
     while i < len(tokens) and tokens[i].type != "heading_close":
         i += 1
@@ -785,7 +897,8 @@ def parse_unit(tokens, idx, file):
 
     i += 1  # move past heading_close
     # Only H3 headings allowed inside a Unit at first
-    if tokens[i].type != "heading_open" or tokens[i].tag != "h3":
+    #if tokens[i].type != "heading_open" or tokens[i].tag != "h3":
+    if i >= len(tokens) or tokens[i].type != "heading_open" or tokens[i].tag != "h3":
         found = tokens[i].tag if hasattr(tokens[i], "tag") else tokens[i].type
         error(
             f"Unit {unit['number']}: Unexpected content. \n"
@@ -793,7 +906,8 @@ def parse_unit(tokens, idx, file):
             f"Expected a section heading (H3).",
             file
         )
-
+    """
+    seen_sections = []
     # -------------------------
     # Parse H3 sections inside unit
     # -------------------------
@@ -823,13 +937,28 @@ def parse_unit(tokens, idx, file):
         # Theory Content section
         # -------------------------
         if m_theory:
-            seen_sections.append("theory")
-            if "theory" in seen_sections[:-1]:
+            sec = "theory"
+
+            if sec in seen_sections:
                 error(
-                    f"Unit {unit['number']}: Theory Content section repeated or out of order",
+                    f"Unit {unit['number']}: Theory Content section repeated",
+                    file
+                )
+            if len(seen_sections) >= len(allowed_order):
+                error(
+                    f"Unit {unit['number']}: Too many sections. "
+                    f"Allowed order is {allowed_order}.",
+                    file
+                )
+            expected_sec = allowed_order[len(seen_sections)]
+            if sec != expected_sec:
+                error(
+                    f"Unit {unit['number']}: Theory Content section out of order. "
+                    f"Expected '{expected_sec}' next.",
                     file
                 )
 
+            seen_sections.append(sec)
             if unit["theory"] is not None:
                 error(
                     f"Unit {unit['number']}: Duplicate Theory Content section",
@@ -838,14 +967,23 @@ def parse_unit(tokens, idx, file):
 
             unit["theory"] = {
                 "hours": int(m_theory.group(1)),
-                "topics": []
+                "topics": [] # list[TheoryTopic]
             }
+            # DSL v1.2 POLICY:
+            # Theory Content hours must be > 0 if section exists
+            if unit["theory"]["hours"] == 0:
+                error(
+                    f"Unit {unit['number']}: Theory Content hours cannot be zero",
+                    file
+                )
+            """
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
                 if i >= len(tokens):
                     error(f"Unit {unit['number']}: Section '{section_title}' is unterminated (missing closing # tags or newline)", file)
 
             i += 1  # move past heading_close
+            """
             # -------------------------
             # Expect bullet list
             # -------------------------
@@ -883,7 +1021,7 @@ def parse_unit(tokens, idx, file):
                     if content_idx < len(tokens):
                         text = tokens[content_idx].content.strip()
                         topic, details = validate_colon_bullet(text, file)
-                        unit["theory"]["topics"].append((topic, details))
+                        unit["theory"]["topics"].append((topic, details)) # TheoryTopic
                     
                     # Move i to the content_idx to continue processing
                     i = content_idx + 1
@@ -900,15 +1038,51 @@ def parse_unit(tokens, idx, file):
                     f"Unit {unit['number']}: Theory Content has no topics",
                     file
                 )
+            # -------------------------
+            # POLICY (DSL v1.2):
+            # Theory topic cardinality per unit
+            # Rationale:
+            # - Ensures sufficient conceptual breadth
+            # - Mandated by curriculum regulation (not faculty preference)
+            # -------------------------
+            if Version(DSL_POLICY_VERSION) >= Version("1.2"):
+                limits = POLICY_LIMITS["theory_topics"]
+                if not (limits["min"] <= len(unit["theory"]["topics"]) <= limits["max"]):
+                    error(
+                         f"Unit {unit['number']}: Theory Content must have "
+                        f"{limits['min']}–{limits['max']} topics "
+                        f"(found {len(unit['theory']['topics'])})",
+                        file
+                    )
 
             continue
         # -------------------------
         # Laboratory Experiments section
         # -------------------------
         if m_lab:
-            seen_sections.append("lab")
-            if "lab" in seen_sections[:-1]:
-                error(f"Unit {unit['number']}: Laboratory Experiments section repeated or out of order", file)
+            sec = "lab"
+
+            if sec in seen_sections:
+                error(
+                    f"Unit {unit['number']}: Laboratory Experiments section repeated",
+                    file
+                )
+            if len(seen_sections) >= len(allowed_order):
+                error(
+                    f"Unit {unit['number']}: Too many sections. "
+                    f"Allowed order is {allowed_order}.",
+                    file
+                )
+            expected_sec = allowed_order[len(seen_sections)]
+            if sec != expected_sec:
+                error(
+                    f"Unit {unit['number']}: Laboratory Experiments section out of order. "
+                    f"Expected '{expected_sec}' next.",
+                    file
+                )
+
+            seen_sections.append(sec)
+
             if unit["lab"] is not None:
                 error(f"Unit {unit['number']}: Duplicate Laboratory Experiments section", file)
 
@@ -917,11 +1091,13 @@ def parse_unit(tokens, idx, file):
                 "experiments": []
             }
 
+            """
             # Move past H3 heading robustly using the helper
             _, i = get_next_inline_content(tokens, i) 
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
             i += 1  # past heading_close
+            """
 
             # -------------------------
             # Parse H4 experiment blocks
@@ -943,10 +1119,12 @@ def parse_unit(tokens, idx, file):
                         error(f"Unit {unit['number']}: Malformed H4 experiment heading", file)
                     
                     # Move past H4 heading
+                    # BEGIN: consume heading block
                     i = title_idx
                     while i < len(tokens) and tokens[i].type != "heading_close":
                         i += 1
                     i += 1  # past heading_close
+                    # END: consume heading block
 
                     # -------------------------
                     # Collect experiment description
@@ -983,7 +1161,7 @@ def parse_unit(tokens, idx, file):
                     unit["lab"]["experiments"].append({
                         "title": exp_title,
                         "description": description
-                    })
+                    }) # LabExperiment
                     continue
                 
                 # If we encounter something that isn't a heading or noise, skip it or handle it
@@ -991,15 +1169,52 @@ def parse_unit(tokens, idx, file):
 
             if not unit["lab"]["experiments"]:
                 error(f"Unit {unit['number']}: Laboratory Experiments section has no experiments", file)
+            
+            # -------------------------
+            # POLICY (DSL v1.2):
+            # Laboratory experiment cardinality per unit
+            # Rationale:
+            # - Focus on depth rather than breadth
+            # - Prevents superficial lab listings
+            # -------------------------
+            if Version(DSL_POLICY_VERSION) >= Version("1.2"):
+                experiment_limits = POLICY_LIMITS["lab_experiments"]
+                if not (experiment_limits["min"] <= len(unit["lab"]["experiments"]) <= experiment_limits["max"]):
+                    error(
+                        f"Unit {unit['number']}: Laboratory Experiments must have "
+                        f"{experiment_limits['min']}–{experiment_limits['max']} experiments "
+                        f"(found {len(unit['lab']['experiments'])})",
+                        file
+                    )
 
             continue
         # -------------------------
         # X-Activity section
         # -------------------------
         if m_x:
-            seen_sections.append("x")
-            if "x" in seen_sections[:-1]:
-                error(f"Unit {unit['number']}: X-Activity section repeated or out of order", file)
+            sec = "x"
+
+            if sec in seen_sections:
+                error(
+                    f"Unit {unit['number']}: X-Activity section repeated",
+                    file
+                )
+            if len(seen_sections) >= len(allowed_order):
+                error(
+                    f"Unit {unit['number']}: Too many sections. "
+                    f"Allowed order is {allowed_order}.",
+                    file                )
+
+            expected_sec = allowed_order[len(seen_sections)]
+            if sec != expected_sec:
+                error(
+                    f"Unit {unit['number']}: X-Activity section out of order. "
+                    f"Expected '{expected_sec}' next.",
+                    file
+                )
+
+            seen_sections.append(sec)
+
             if unit["x"] is not None:
                 error(f"Unit {unit['number']}: Duplicate X-Activity section", file)
 
@@ -1008,12 +1223,13 @@ def parse_unit(tokens, idx, file):
                 "components": []
             }
 
+            """
             # Move past H3 heading safely using the helper
             _, i = get_next_inline_content(tokens, i)
             while i < len(tokens) and tokens[i].type != "heading_close":
                 i += 1
             i += 1  # past heading_close
-
+            """
             # -------------------------
             # Parse H4 component blocks
             # -------------------------
@@ -1029,11 +1245,12 @@ def parse_unit(tokens, idx, file):
                     comp_title, title_idx = get_next_inline_content(tokens, i + 1)
                     if not comp_title:
                         error(f"Unit {unit['number']}: Malformed H4 component heading", file)
-                    
+                    # BEGIN: consume heading block
                     i = title_idx
                     while i < len(tokens) and tokens[i].type != "heading_close":
                         i += 1
                     i += 1  # past heading_close
+                    # END: consume heading block
 
                     description = []
                     while i < len(tokens):
@@ -1041,6 +1258,7 @@ def parse_unit(tokens, idx, file):
                             break
                         
                         content, next_idx = get_next_inline_content(tokens, i)
+                        
                         if content:
                             is_list_item = False
                             check_idx = i
@@ -1063,21 +1281,35 @@ def parse_unit(tokens, idx, file):
                     unit["x"]["components"].append({
                         "title": comp_title,
                         "description": description
-                    })
+                    }) # XComponent
                     # ----------------------------------------
                     continue
-                
+                # Fallback pointer advance: executed only if no jump/continue occurred
                 i += 1
 
             if not unit["x"]["components"]:
                 error(f"Unit {unit['number']}: X-Activity section has no components", file)
-
+            
+            # -------------------------
+            # POLICY (DSL v1.2):
+            # X-Activity component cardinality per unit
+            # Rationale:
+            # - X-Activities are outcome-driven, not content-heavy
+            # -------------------------
+            if Version(DSL_POLICY_VERSION) >= Version("1.2"):      
+                xcomponent_limits = POLICY_LIMITS["x_components"]
+                if not (xcomponent_limits["min"] <= len(unit["x"]["components"]) <= xcomponent_limits["max"]):
+                    error(
+                        f"Unit {unit['number']}: X-Activity must have "
+                        f"{xcomponent_limits['min']}–{xcomponent_limits['max']} activities "
+                        f"(found {len(unit['x']['components'])})",
+                        file
+                    )
             continue
-        # -------------------------
-        # Unknown section
-        # -------------------------
+        # Unknown H3 section
         error(
-            f"Unit {unit['number']}: Invalid section heading '{section_title}'",
+            f"Unit {unit['number']}: Invalid section heading '{section_title}'. "
+            "Allowed sections are Theory Content, Laboratory Experiments, X-Activity.",
             file
         )
     unit["section_order"] = seen_sections
@@ -1214,6 +1446,18 @@ def emit_latex(courses, programme_details):
 # -------------------------
 
 def main():
+    # -------------------------
+    # Policy Banner
+    # -------------------------
+    print("=" * 60)
+    print("University Syllabus Compiler")
+    print(f"Active DSL Policy Version : {DSL_POLICY_VERSION}")
+    print("Topic Cardinality Policy:")
+    print("  Theory Topics       : 4–8 per unit")
+    print("  Laboratory Experiments : 1–3 per unit")
+    print("  X-Activity Components  : 1–3 per unit")
+    print("=" * 60)
+
     # 1. Initialize error collection
     all_errors = []
 
