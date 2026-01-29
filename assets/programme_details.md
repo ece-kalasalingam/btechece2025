@@ -1,5 +1,4 @@
 # Programme Details
-# Programme Details
 
 ## University Vision
 To be a University of Excellence of International Repute in Education and Research
