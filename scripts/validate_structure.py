@@ -194,6 +194,22 @@ def extract_project_total_hours(project_section: MarkdownSection) -> Optional[in
             return int(m.group(2))
     return None
 
+def _check_unit_sequence(course_code: str, units: List[UnitBlock], invariant_prefix: str):
+    numbers = [u.number for u in units]
+
+    if len(set(numbers)) != len(numbers):
+        raise ValidationError(
+            course_code,
+            f"{invariant_prefix}-UNIT-DUPLICATE",
+            "Duplicate unit numbers detected"
+        )
+
+    if numbers != sorted(numbers):
+        raise ValidationError(
+            course_code,
+            f"{invariant_prefix}-UNIT-ORDER",
+            "Units must be in increasing numerical order"
+        )
 
 # ---------------------------
 # Validators
@@ -222,6 +238,8 @@ def validate_academic_theory(course_code: str, sections: List[MarkdownSection], 
 
     if len(units) != 5:
         raise ValidationError(course_code, "AT-UNIT-COUNT", f"Expected exactly 5 units, found {len(units)}")
+
+    _check_unit_sequence(course_code, units, "AT")
 
     total_hours = 0
 
@@ -270,6 +288,8 @@ def validate_academic_integrated(course_code: str, sections: List[MarkdownSectio
 
     if len(units) != 5:
         raise ValidationError(course_code, "AI-UNIT-COUNT", f"Expected exactly 5 units, found {len(units)}")
+    
+    _check_unit_sequence(course_code, units, "AI")
 
     total_hours = 0
 
@@ -309,6 +329,9 @@ def validate_academic_integrated(course_code: str, sections: List[MarkdownSectio
 
 def validate_skill_practice(course_code: str, sections: List[MarkdownSection], ltpxtotal_hours: int) -> None:
     units = extract_units(sections)
+
+    if units:
+        _check_unit_sequence(course_code, units, "SP")
 
     total_hours = 0
     has_activity = False
