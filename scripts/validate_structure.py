@@ -33,16 +33,20 @@ KARE B.Tech Regulations R2025
 
 =====================================================================
 """
+# NOTE:
+# Title sentence count and description paragraph validation
+# are enforced in Stage-2d (not here).
+
 # validate_structure.py
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Tuple
+from typing import List, Optional
 import re
 
-
+from contracts import ValidationError, MarkdownSection, ValidationWarning, CourseMetadata
 # ---------------------------
 # Shared contracts
 # ---------------------------
@@ -52,17 +56,6 @@ class ContentShape(Enum):
     ACADEMIC_INTEGRATED = "academic_integrated"
     SKILL_PRACTICE = "skill_practice"
     PROJECT = "project"
-
-
-@dataclass(frozen=True)
-class MarkdownSection:
-    title: str
-    body: str
-
-
-class ValidationError(Exception):
-    def __init__(self, course_code: str, invariant_id: str, message: str):
-        super().__init__(f"{course_code} [{invariant_id}]: {message}")
 
 
 # ---------------------------
@@ -86,23 +79,9 @@ X_HOURS_RE      = re.compile(r"(x\s*hours?|activity\s*hours?)\s*[:\-]?\s*(\d+)",
 
 TOTAL_HOURS_RE  = re.compile(r"(total\s*hours?)\s*[:\-]?\s*(\d+)", re.I)
 
-CAPSTONE_KEYWORDS = (
-    "project",
-    "capstone",
-    "major project",
-    "minor project",
-    "final year project",
-)
-
-
-def normalize_unit_title(raw: str) -> str:
-    if not raw:
-        return ""
-    t = raw.strip()
-    t = t.replace("&", "and")
-    t = re.sub(r"^introduction\s+(to|of)\s+(.+)$", r"Basics of \2", t, flags=re.I)
-    t = t.title()
-    return t
+EXPERIMENT_TITLE_RE = re.compile(r"^\s*[\*\-]\s*(experiment|lab)\b[:\-]?\s*(?P<title>[^.]+)\.?\s*$",  re.I)
+#X_ACTIVITY_TITLE_RE = re.compile(r"^\s*(x[\s\-]*activity)\b[:\-]?\s*(.+)$", re.I)
+X_ACTIVITY_TITLE_RE = re.compile(r"^\s*[\*\-]\s*(x[\s\-]*activity)\b[:\-]?\s*(?P<title>.+?)$", re.I)
 
 
 # ---------------------------
@@ -110,21 +89,28 @@ def normalize_unit_title(raw: str) -> str:
 # ---------------------------
 
 @dataclass
+class ActivityBlock:
+    title: str
+    description: str
+
+@dataclass
 class UnitBlock:
     number: int
     title: str
-    topics: List[str]
-    experiments: List[str]
-    theory_hours: Optional[int]
-    lab_hours: Optional[int]
-    x_hours: Optional[int]
+    topics: List[str] = field(default_factory=list)
+    experiments: List[ActivityBlock] = field(default_factory=list)
+    x_activities: List[ActivityBlock] = field(default_factory=list)
+    theory_hours: Optional[int] = None
+    lab_hours: Optional[int] = None
+    x_hours: Optional[int] = None
+    mapped_cos: List[str] = field(default_factory=list)
 
     @property
     def total_hours(self) -> int:
         return int(self.theory_hours or 0) + int(self.lab_hours or 0) + int(self.x_hours or 0)
 
 
-def extract_units(sections: List[MarkdownSection]) -> List[UnitBlock]:
+def extract_units(course_code:str, sections: List[MarkdownSection]) -> List[UnitBlock]:
     units: List[UnitBlock] = []
     current: Optional[UnitBlock] = None
 
@@ -137,45 +123,136 @@ def extract_units(sections: List[MarkdownSection]) -> List[UnitBlock]:
             raw_title = (m.group("title") or "").strip()
             current = UnitBlock(
                 number=int(m.group("num")),
-                title=normalize_unit_title(raw_title),
+                title=raw_title.strip(),
                 topics=[],
                 experiments=[],
+                x_activities=[],
                 theory_hours=None,
                 lab_hours=None,
                 x_hours=None,
             )
-            continue
+
+            #continue
 
         if not current:
             continue
 
-        for line in sec.body.splitlines():
-            s = line.strip()
+        lines = sec.body.splitlines()
+        i = 0
+        while i < len(lines):
+            s = lines[i].strip()
+
             if not s:
+                i += 1
                 continue
 
+            # -------- Bulleted Experiment Block --------
+            # Look for a line starting with a bullet followed by "Experiment"
+            mexp = EXPERIMENT_TITLE_RE.search(s)
+            if mexp:
+                title = mexp.group("title").strip()
+                desc_lines = []
+                i += 1
+                
+                # Look for sub-bullets (indented with spaces)
+                while i < len(lines):
+                    sub_line = lines[i] # Don't strip yet, we need to check indentation
+                    stripped_sub = sub_line.strip()
+                    
+                    # Stop if we hit an empty line or a new main-level bullet
+                    if not stripped_sub or (sub_line.startswith((" ", "\t")) == False and stripped_sub.startswith(("*", "-"))):
+                        break
+                        
+                    # It's a sub-bullet if it starts with indentation and a bullet marker
+                    if re.match(r"^\s+[\*\-]\s+", sub_line):
+                        desc_lines.append(re.sub(r"^\s*[\*\-]\s*", "", sub_line).strip())
+                    
+                    i += 1
+
+                # 1. Check sub-bullet count (Your requirement: 1 to 4)
+                if not (1 <= len(desc_lines) <= 4):
+                    raise ValidationError(course_code, "STRUC-EXP-SUB-COUNT", 
+                        f"Experiment '{title}' must have 1–4 sub-bullets (found {len(desc_lines)}) as description.")
+
+                full_desc = " ".join(desc_lines)
+                word_count = len(full_desc.split())
+
+                # 2. Check total word count (Min 15)
+                if word_count < 15:
+                    raise ValidationError(course_code, "STRUC-EXP-DESC-SHORT", 
+                        f"Experiment '{title}' description (sum of sub-bullets) must be at least 15 words.")
+
+                current.experiments.append(ActivityBlock(title=title, description=full_desc))
+                continue
+            # -------- Bulleted X-Activity Block --------
+            # Priority check: Catch X-Activity BEFORE general topics
+            mxact = X_ACTIVITY_TITLE_RE.search(s)
+            if mxact:
+                title = mxact.group("title").strip()
+                desc_lines = []
+                i += 1
+                
+                # Look for sub-bullets (Must be indented)
+                while i < len(lines):
+                    sub_line_raw = lines[i]
+                    sub_s = sub_line_raw.strip()
+                    
+                    if not sub_s: 
+                        i += 1
+                        continue
+                    
+                    # Break if the line is NOT indented (meaning it's a new main topic or hour)
+                    if not (sub_line_raw.startswith(" ") or sub_line_raw.startswith("\t")):
+                        break
+                        
+                    # Capture sub-bullet content from indented lines starting with - or *
+                    if sub_s.startswith(("-", "*")):
+                        desc_lines.append(sub_s.lstrip("-* ").strip())
+                    
+                    i += 1
+
+                # Validation: 1 to 4 sub-bullets for X-Activity
+                if not (1 <= len(desc_lines) <= 4):
+                    raise ValidationError(course_code, "STRUC-XACT-SUB-COUNT", 
+                        f"X-Activity '{title}' must have 1–4 sub-bullets as description.")
+
+                full_desc = " ".join(desc_lines)
+                
+                # Validation: Min 15 words for the collective description
+                if len(full_desc.split()) < 15:
+                    raise ValidationError(course_code, "STRUC-XACT-DESC-SHORT", 
+                        f"X-Activity '{title}' description must be at least 15 words.")
+
+                current.x_activities.append(ActivityBlock(title=title, description=full_desc))
+                continue # Claimed as X-Activity, skip topic check
+
+            # -------- Topics --------
             if s.startswith(("-", "*")):
-                current.topics.append(s.lstrip("-* ").strip())
+                t = s.lstrip("-* ").strip()
+                if t:
+                    current.topics.append(t)
+                i += 1
                 continue
 
+            # -------- Hours --------
             mt = THEORY_HOURS_RE.search(s)
             if mt:
                 current.theory_hours = int(mt.group(2))
+                i += 1
                 continue
 
             ml = LAB_HOURS_RE.search(s)
             if ml:
                 current.lab_hours = int(ml.group(2))
+                i += 1
                 continue
 
             mx = X_HOURS_RE.search(s)
             if mx:
                 current.x_hours = int(mx.group(2))
+                i += 1
                 continue
-
-            if re.search(r"\b(experiment|lab)\b", s, re.I):
-                current.experiments.append(s)
-                continue
+            i += 1
 
     if current:
         units.append(current)
@@ -183,9 +260,19 @@ def extract_units(sections: List[MarkdownSection]) -> List[UnitBlock]:
     return units
 
 
-def extract_project_block(sections: List[MarkdownSection]) -> List[MarkdownSection]:
-    return [s for s in sections if "project" in s.title.lower()]
+#def extract_project_block(sections: List[MarkdownSection]) -> List[MarkdownSection]:
+ #   return [s for s in sections if "project" in s.title.lower()]
 
+def extract_project_description(sections: List[MarkdownSection]) -> Optional[MarkdownSection]:
+    """
+    Match ONLY the 'Project Description' section.
+    Word-boundary, case-insensitive.
+    """
+    for s in sections:
+        title = s.title.lower()
+        if re.search(r"\bproject\s+description\b", title):
+            return s
+    return None
 
 def extract_project_total_hours(project_section: MarkdownSection) -> Optional[int]:
     for line in project_section.body.splitlines():
@@ -210,6 +297,15 @@ def _check_unit_sequence(course_code: str, units: List[UnitBlock], invariant_pre
             f"{invariant_prefix}-UNIT-ORDER",
             "Units must be in increasing numerical order"
         )
+    expected_sequence = list(range(1, len(units) + 1))
+    
+    if numbers != expected_sequence:
+        # If they are out of order OR a number is missing, this triggers
+        raise ValidationError(
+            course_code,
+            f"{invariant_prefix}-UNIT-SEQUENCE",
+            f"Units must be continuous starting from 1. Expected {expected_sequence}, found {numbers}"
+        )
 
 # ---------------------------
 # Validators
@@ -219,22 +315,23 @@ def validate_course(
     course_code: str,
     inferred_shape: ContentShape,
     sections: List[MarkdownSection],
-    ltpxtotal_hours: int,
+    meta: CourseMetadata,
+    warnings: List[ValidationWarning],
 ) -> None:
     if inferred_shape == ContentShape.ACADEMIC_THEORY:
-        validate_academic_theory(course_code, sections, ltpxtotal_hours)
+        validate_academic_theory(course_code, sections, meta)
     elif inferred_shape == ContentShape.ACADEMIC_INTEGRATED:
-        validate_academic_integrated(course_code, sections, ltpxtotal_hours)
+        validate_academic_integrated(course_code, sections, meta, warnings)
     elif inferred_shape == ContentShape.SKILL_PRACTICE:
-        validate_skill_practice(course_code, sections, ltpxtotal_hours)
+        validate_skill_practice(course_code, sections, meta)
     elif inferred_shape == ContentShape.PROJECT:
-        validate_project(course_code, sections, ltpxtotal_hours)
+        validate_project(course_code, sections, meta)
     else:
         raise ValidationError(course_code, "SHAPE-UNKNOWN", f"Unsupported content shape {inferred_shape}")
 
 
-def validate_academic_theory(course_code: str, sections: List[MarkdownSection], ltpxtotal_hours: int) -> None:
-    units = extract_units(sections)
+def validate_academic_theory(course_code: str, sections: List[MarkdownSection], meta:CourseMetadata) -> None:
+    units = extract_units(course_code, sections)
 
     if len(units) != 5:
         raise ValidationError(course_code, "AT-UNIT-COUNT", f"Expected exactly 5 units, found {len(units)}")
@@ -246,11 +343,11 @@ def validate_academic_theory(course_code: str, sections: List[MarkdownSection], 
     for u in units:
         unit_label = f"Unit {u.number}" + (f" ({u.title})" if u.title else "")
 
-        if u.experiments:
+        if u.experiments or u.x_activities:
             raise ValidationError(
                 course_code,
-                "AT-EXPERIMENT-FORBIDDEN",
-                f"{unit_label}: experiments are not allowed in Academic-Theory courses",
+                "AT-ACTIVITY-FORBIDDEN",
+                f"{unit_label}: experiments or X-activities are not allowed in Academic-Theory courses",
             )
 
         if u.lab_hours or u.x_hours:
@@ -275,16 +372,19 @@ def validate_academic_theory(course_code: str, sections: List[MarkdownSection], 
 
         total_hours += u.total_hours
 
-    if total_hours != ltpxtotal_hours:
+    if total_hours != meta.ltpxtotal_hours:
         raise ValidationError(
             course_code,
             "AT-HOUR-MISMATCH",
-            f"Declared hours {total_hours} ≠ expected {ltpxtotal_hours}",
+            f"Declared hours {total_hours} ≠ expected {meta.ltpxtotal_hours}",
         )
 
+# NOTE:
+# u.experiments and u.x_activities are lists of ActivityBlock (not strings)
+# Structural validators only count presence, not content.
 
-def validate_academic_integrated(course_code: str, sections: List[MarkdownSection], ltpxtotal_hours: int) -> None:
-    units = extract_units(sections)
+def validate_academic_integrated(course_code: str, sections: List[MarkdownSection], meta:CourseMetadata, warnings) -> None:
+    units = extract_units(course_code,sections)
 
     if len(units) != 5:
         raise ValidationError(course_code, "AI-UNIT-COUNT", f"Expected exactly 5 units, found {len(units)}")
@@ -292,6 +392,9 @@ def validate_academic_integrated(course_code: str, sections: List[MarkdownSectio
     _check_unit_sequence(course_code, units, "AI")
 
     total_hours = 0
+    total_theory_hours = 0
+    total_lab_hours = 0
+    total_x_hours = 0
 
     for u in units:
         unit_label = f"Unit {u.number}" + (f" ({u.title})" if u.title else "")
@@ -316,19 +419,54 @@ def validate_academic_integrated(course_code: str, sections: List[MarkdownSectio
 
         if u.x_hours == 0:
             raise ValidationError(course_code, "AI-X-HOUR-ZERO", f"{unit_label}: x hours cannot be zero")
+        
+        if u.x_hours and not u.x_activities:
+            raise ValidationError(
+                course_code,
+                "AI-X-ACTIVITY-MISSING",
+                f"{unit_label}: X-hours declared but no X-activity block provided",
+            )
 
         total_hours += u.total_hours
+        total_theory_hours += u.theory_hours or 0
+        total_lab_hours += u.lab_hours or 0
+        total_x_hours += u.x_hours or 0
 
-    if total_hours != ltpxtotal_hours:
+    if total_hours != meta.ltpxtotal_hours:
         raise ValidationError(
             course_code,
             "AI-HOUR-MISMATCH",
-            f"Declared hours {total_hours} ≠ expected {ltpxtotal_hours}",
+            f"Declared hours {total_hours} ≠ expected {meta.ltpxtotal_hours}",
         )
+    if total_theory_hours != (15 * (meta.L + meta.T)):
+        warnings.append(
+           ValidationWarning(
+            course_code,
+            "AI-THEORY-HOUR-WARN",
+            f"Total theory hours {total_theory_hours} differs from expected {15 * (meta.L + meta.T)} (15 × (L + T))",
+            )
+        )
+        
+    if total_lab_hours != (15 * meta.P):
+        warnings.append(
+           ValidationWarning(
+            course_code,
+            "AI-PRACTICAL-HOUR-WARN",
+            f"Total practical hours {total_lab_hours} differs from expected {15 * meta.P} (15 × P)",
+            )
+        )
+    if total_x_hours != (15 * meta.X):
+        warnings.append(
+            ValidationWarning(
+            course_code,
+            "AI-X-HOUR-WARN",
+            f"Total x-activity hours {total_x_hours} differs from expected {15 * meta.X} (15 × X)",
+            )
+        )
+        
 
-
-def validate_skill_practice(course_code: str, sections: List[MarkdownSection], ltpxtotal_hours: int) -> None:
-    units = extract_units(sections)
+def validate_skill_practice(course_code: str, sections: List[MarkdownSection], meta:CourseMetadata) -> None:
+    units = extract_units(course_code, sections)
 
     if units:
         _check_unit_sequence(course_code, units, "SP")
@@ -340,7 +478,7 @@ def validate_skill_practice(course_code: str, sections: List[MarkdownSection], l
         if u.theory_hours:
             raise ValidationError(course_code, "SP-THEORY-FORBIDDEN", "Theory hours not allowed in Skill-Practice courses")
 
-        if u.experiments or u.lab_hours or u.x_hours:
+        if u.experiments or u.x_activities or u.lab_hours or u.x_hours:
             has_activity = True
 
         if u.lab_hours is None and u.x_hours is None:
@@ -357,37 +495,39 @@ def validate_skill_practice(course_code: str, sections: List[MarkdownSection], l
     if not has_activity:
         raise ValidationError(course_code, "SP-ACTIVITY-MISSING", "At least one activity/experiment (lab/x) is mandatory")
 
-    if total_hours != ltpxtotal_hours:
+    if total_hours != meta.ltpxtotal_hours:
         raise ValidationError(
             course_code,
             "SP-HOUR-MISMATCH",
-            f"Declared hours {total_hours} ≠ expected {ltpxtotal_hours}",
+            f"Declared hours {total_hours} ≠ expected {meta.ltpxtotal_hours}",
         )
 
 
-def validate_project(course_code: str, sections: List[MarkdownSection], ltpxtotal_hours: int) -> None:
-    units = extract_units(sections)
+def validate_project(course_code: str, sections: List[MarkdownSection], meta:CourseMetadata) -> None:
+    units = extract_units(course_code, sections)
     if units:
         raise ValidationError(course_code, "PR-UNIT-FORBIDDEN", "Units are not allowed in Project courses")
 
-    project_blocks = extract_project_block(sections)
-    if len(project_blocks) != 1:
+    project_desc = extract_project_description(sections)
+
+    if not project_desc:
         raise ValidationError(
             course_code,
-            "PR-DESCRIPTION-COUNT",
-            f"Expected exactly 1 project description block, found {len(project_blocks)}",
+            "PR-DESCRIPTION-MISSING",
+            "Project Description section is missing"
         )
 
-    hours = extract_project_total_hours(project_blocks[0])
+    hours = extract_project_total_hours(project_desc)
+
     if hours is None:
         raise ValidationError(course_code, "PR-HOUR-MISSING", "Project total hours not declared")
 
     if hours == 0:
         raise ValidationError(course_code, "PR-HOUR-ZERO", "Project total hours cannot be zero")
 
-    if hours != ltpxtotal_hours:
+    if hours != meta.ltpxtotal_hours:
         raise ValidationError(
             course_code,
             "PR-HOUR-MISMATCH",
-            f"Declared hours {hours} ≠ expected {ltpxtotal_hours}",
+            f"Declared hours {hours} ≠ expected {meta.ltpxtotal_hours}",
         )

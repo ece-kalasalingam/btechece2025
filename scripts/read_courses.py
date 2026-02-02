@@ -23,10 +23,6 @@ Design Intent:
 - All semantic interpretation is deliberately deferred
 - The generated TeX is a DATA STORE, not a document
 
-Later Stages (not implemented here):
-- Stage-1: Markdown section parsing
-- Stage-2: Regulation / DSL validation
-- Stage-3: NBA / ABET rendering views
 """
 
 from pathlib import Path
@@ -41,12 +37,7 @@ INDEX_FILENAME = "index.md"
 REPORT_FILENAME = "error_report.json"
 MASTER_TEX_FILENAME = "course_data.tex"
 
-@dataclass
-class MarkdownSection:
-    level: int          # 0 for preamble, 1+ for headers
-    title: str          # "__PREAMBLE__" or header text
-    body: str           # raw content under this section
-
+from contracts import MarkdownSection
 
 def split_markdown_sections(md_text: str) -> list[MarkdownSection]:
     sections: list[MarkdownSection] = []

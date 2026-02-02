@@ -5,95 +5,157 @@ STAGE-2c : CONTENT BLOCK GRAMMAR VALIDATION (KARE R2025)
 
 PURPOSE
 -------
-Validate grammar and minimal structural completeness of
-content blocks inside units and activities.
+Validate grammar-level correctness of topics, experiments,
+and X-activities AFTER structural validation.
 
-This stage operates AFTER:
-- Stage-2a (content shape inference)
-- Stage-2b (structural validation)
-
-INPUTS
-------
-- Parsed syllabus sections
-- Extracted UnitBlocks (from Stage-2b extractors)
+SCOPE
+-----
+- Topic title + sub-topic separator
+- Experiment / X-activity title + description presence
+- Sentence / paragraph form checks (lightweight)
 
 NON-GOALS
 ---------
-- No content shape inference
-- No hour validation
-- No pedagogical quality checks
+- No semantic checks
+- No hour checks
+- No standards / constraints interpretation
 - No NBA / ABET / CO validation
-- No deduplication or normalization
-
-DESIGN PRINCIPLES
------------------
-- Grammar-level validation only
-- No semantic interpretation
-- Fail-fast on first violation
-- Shape-agnostic unless explicitly stated
-
-REGULATION BASIS
-----------------
-KARE B.Tech Regulations R2025
 
 =====================================================================
 """
+
 from typing import List
-from dataclasses import dataclass
+import re
 
 from validate_structure import (
     UnitBlock,
-    MarkdownSection,
+    ActivityBlock,
     ValidationError,
 )
-# Topic Grammar
-TG_PREFIX = "TG"
 
-# Experiment Grammar
-EXP_PREFIX = "EXP"
+# ---------------------------
+# Invariant prefixes
+# ---------------------------
 
-# X-Activity Grammar
-XG_PREFIX = "XG"
-def validate_content_blocks(
-    course_code: str,
-    sections: List[MarkdownSection],
-    units: List[UnitBlock],
-) -> None:
-    """
-    Dispatch content-block grammar validators.
-    """
+TG_PREFIX  = "TG"   # Topic Grammar
+EXP_PREFIX = "EXP"  # Experiment Grammar
+XG_PREFIX  = "XG"   # X-Activity Grammar
+
+
+# ---------------------------
+# Dispatch
+# ---------------------------
+
+def validate_content_blocks(course_code, units):
     validate_topic_grammar(course_code, units)
-    validate_experiment_blocks(course_code, units)
-    validate_x_activity_blocks(course_code, units)
+    validate_experiment_grammar(course_code, units)
+    validate_x_activity_grammar(course_code, units)
+
+
+# ---------------------------
+# Topic Grammar
+# ---------------------------
+# Topic grammar is STRICT by regulation:
+# title : sub-topics (colon is mandatory)
 
 def validate_topic_grammar(course_code: str, units: List[UnitBlock]) -> None:
     for u in units:
         for idx, topic in enumerate(u.topics, start=1):
-            if ":" not in topic:
+            if not topic.strip():
+                raise ValidationError(
+                    course_code,
+                    f"{TG_PREFIX}-EMPTY",
+                    f"Unit {u.number}: Topic {idx} is empty"
+                )
+
+            if ":" not in topic: #mandatory
                 raise ValidationError(
                     course_code,
                     f"{TG_PREFIX}-COLON-MISSING",
                     f"Unit {u.number}: Topic {idx} must contain ':' separating title and sub-topics"
                 )
 
-def validate_experiment_blocks(course_code: str, units: List[UnitBlock]) -> None:
-    for u in units:
-        for idx, exp in enumerate(u.experiments, start=1):
-            if not exp.strip():
+            head, tail = topic.split(":", 1)
+            if not head.strip() or not tail.strip():
                 raise ValidationError(
                     course_code,
-                    f"{EXP_PREFIX}-TITLE-MISSING",
-                    f"Unit {u.number}: Experiment {idx} title missing"
+                    f"{TG_PREFIX}-INCOMPLETE",
+                    f"Unit {u.number}: Topic {idx} must have content on both sides of ':'"
                 )
 
-            # Description presence check is deferred to section-level parsing
-            # Placeholder invariant for future extension
-def validate_x_activity_blocks(course_code: str, units: List[UnitBlock]) -> None:
+
+# ---------------------------
+# Experiment Grammar
+# ---------------------------
+
+def validate_experiment_grammar(course_code: str, units: List[UnitBlock]) -> None:
     for u in units:
-        if u.x_hours:
-            if not u.experiments:
-                raise ValidationError(
-                    course_code,
-                    f"{XG_PREFIX}-ACTIVITY-MISSING",
-                    f"Unit {u.number}: X-activity hours declared but no activity description provided"
-                )
+        for idx, exp in enumerate(u.experiments, start=1):
+            _validate_activity_block(
+                course_code,
+                exp,
+                f"{EXP_PREFIX}",
+                f"Unit {u.number}: Experiment {idx}",
+            )
+
+
+# ---------------------------
+# X-Activity Grammar
+# ---------------------------
+
+def validate_x_activity_grammar(course_code: str, units: List[UnitBlock]) -> None:
+    for u in units:
+        for idx, act in enumerate(u.x_activities, start=1):
+            _validate_activity_block(
+                course_code,
+                act,
+                f"{XG_PREFIX}",
+                f"Unit {u.number}: X-Activity {idx}",
+            )
+
+
+# ---------------------------
+# Shared Activity Grammar
+# ---------------------------
+
+def _validate_activity_block(
+    course_code: str,
+    block: ActivityBlock,
+    prefix: str,
+    label: str,
+) -> None:
+    # ---- Title checks ----
+    if not block.title.strip():
+        raise ValidationError(
+            course_code,
+            f"{prefix}-TITLE-MISSING",
+            f"{label}: title is missing"
+        )
+
+    if _count_sentences(block.title) != 1:
+        raise ValidationError(
+            course_code,
+            f"{prefix}-TITLE-SENTENCE-COUNT",
+            f"{label}: title must be exactly one sentence"
+        )
+
+    # ---- Description checks ----
+    if not block.description.strip():
+        raise ValidationError(
+            course_code,
+            f"{prefix}-DESCRIPTION-MISSING",
+            f"{label}: description paragraph is missing"
+        )
+
+    if _count_sentences(block.description) < 1:
+        raise ValidationError(
+            course_code,
+            f"{prefix}-DESCRIPTION-NOT-PARAGRAPH",
+            f"{label}: description must be a paragraph (one or more sentences)"
+        )
+def _count_sentences(text: str) -> int:
+    """
+    Heuristic sentence counter.
+    Not linguistically exact by design.
+    """
+    return len([s for s in re.split(r"[.!?]+", text) if s.strip()])

@@ -49,45 +49,9 @@ NON-GOALS (DO NOT ADD)
 """
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Callable, List, Tuple
-
-
-# =====================================================================
-# POLICY VERSION
-# =====================================================================
-
-POLICY_VERSION = "R2025_v1.0"
-
-
-# =====================================================================
-# ENUMERATIONS (STABLE VALUES — NO auto())
-# =====================================================================
-
-class CourseCategory(Enum):
-    FCM = "FCM"   # Foundation Course Mandatory
-    FCE = "FCE"   # Foundation Course Elective
-    PCM = "PCM"   # Program Course Mandatory (includes Capstone)
-    PCE = "PCE"   # Program Course Elective
-    SEM = "SEM"   # Skill Enhancement Mandatory (Internship)
-    SEE = "SEE"   # Skill Enhancement Elective
-    MDM = "MDM"   # Multidisciplinary Mandatory (EXSEL)
-    MDE = "MDE"   # Multidisciplinary Elective
-
-
-class CourseType(Enum):
-    TC = "TC"       # Theory Course
-    PC = "PC"       # Practical Course
-    IC_T = "IC-T"   # Integrated Course – Theory dominant
-    IC_P = "IC-P"   # Integrated Course – Practical dominant
-    SC = "SC"       # Skill Course
-
-
-class ContentShape(Enum):
-    ACADEMIC_THEORY = "academic_theory"
-    ACADEMIC_INTEGRATED = "academic_integrated"
-    SKILL_PRACTICE = "skill_practice"
-    PROJECT = "project"
+from validate_structure import ContentShape
+from contracts import CourseCategory, CourseType, POLICY_VERSION
 
 
 # =====================================================================
