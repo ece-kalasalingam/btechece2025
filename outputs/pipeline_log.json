@@ -1,6 +1,8 @@
 {
-  "status": "OK",
-  "courses_processed": 1,
-  "stages_completed": "0 \u2192 3",
-  "ready_for_stage_4": true
+  "status": "SUCCESSFULLY COMPLETED",
+  "total_courses": 1,
+  "courses_emitted": 1,
+  "courses_omitted": 0,
+  "errors": [],
+  "warnings": []
 }

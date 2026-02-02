@@ -438,29 +438,29 @@ def validate_academic_integrated(course_code: str, sections: List[MarkdownSectio
             "AI-HOUR-MISMATCH",
             f"Declared hours {total_hours} ≠ expected {meta.ltpxtotal_hours}",
         )
-    if total_theory_hours != (15 * (meta.L + meta.T)):
+    if total_theory_hours != (15 * (meta.l + meta.t)):
         warnings.append(
            ValidationWarning(
             course_code,
             "AI-THEORY-HOUR-WARN",
-            f"Total theory hours {total_theory_hours} differs from expected {15 * (meta.L + meta.T)} (15 × (L + T))",
+            f"Total theory hours {total_theory_hours} differs from expected {15 * (meta.l + meta.t)} (15 × (l + t))",
             )
         )
         
-    if total_lab_hours != (15 * meta.P):
+    if total_lab_hours != (15 * meta.p):
         warnings.append(
            ValidationWarning(
             course_code,
             "AI-PRACTICAL-HOUR-WARN",
-            f"Total practical hours {total_lab_hours} differs from expected {15 * meta.P} (15 × P)",
+            f"Total practical hours {total_lab_hours} differs from expected {15 * meta.p} (15 × p)",
             )
         )
-    if total_x_hours != (15 * meta.X):
+    if total_x_hours != (15 * meta.x):
         warnings.append(
             ValidationWarning(
             course_code,
             "AI-X-HOUR-WARN",
-            f"Total x-activity hours {total_x_hours} differs from expected {15 * meta.X} (15 × X)",
+            f"Total x-activity hours {total_x_hours} differs from expected {15 * meta.x} (15 × x)",
             )
         )
         

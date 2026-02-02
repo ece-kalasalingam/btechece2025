@@ -65,7 +65,7 @@ def _validate_credit_policy(course_code: str, meta):
     - Computed credits must equal declared credits
     """
 
-    L, T, P, X, C_declared = meta.L, meta.T, meta.P, meta.X, meta.credits
+    L, T, P, X, C_declared = meta.l, meta.t, meta.p, meta.x, meta.c
 
     # X-Activity hours rule
     if X % 3 != 0:
@@ -87,9 +87,8 @@ def _validate_credit_policy(course_code: str, meta):
             f"computed credits ({C_expected}) as per R2025 §4.4"
         )
 def _warn_course_type_component_mismatch(course_code, metadata, warnings):
-    L = metadata.L
-    T = metadata.T
-    P = metadata.P
+    T = metadata.t
+    P = metadata.p
     ct = metadata.course_type.name
 
     if ct == "TC" and P > 0:

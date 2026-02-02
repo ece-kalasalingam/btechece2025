@@ -53,10 +53,10 @@ class CourseMetadata:
     category: CourseCategory
     course_type: CourseType
     ltpxtotal_hours: int
-    credits: float
-    L: int
-    T: int
-    P: int
-    X: int
+    c: float
+    l: int
+    t: int
+    p: int
+    x: int
     prerequisite: Optional[str] = None
     corequisite: Optional[str] = None

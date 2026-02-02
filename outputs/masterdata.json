@@ -1,0 +1,65 @@
+{
+  "schema_version": "1.0",
+  "meta": {
+    "regulation": "KARE R2025",
+    "pipeline_version": "v1.0",
+    "generated_on": "2026-02-02"
+  },
+  "courses": [
+    {
+      "course_code": "ECE000",
+      "course_title": "Semiconductor Physics",
+      "status": "OK",
+      "metadata": {
+        "category": "PCM",
+        "course_type": "IC-T",
+        "ltpxc": {
+          "l": 3,
+          "t": 0,
+          "p": 2,
+          "x": 3,
+          "c": 5.0
+        }
+      },
+      "content_shape": "academic_integrated",
+      "content_blocks": [],
+      "course_outcomes": [
+        {
+          "id": "CO1",
+          "statement": "Explain energy band formation in solids",
+          "articulationmatrix": {
+            "PO1": 3,
+            "PO5": 2,
+            "PSO1": 2,
+            "SO2": 3
+          }
+        },
+        {
+          "id": "CO2",
+          "statement": "Distinguish intrinsic and extrinsic semiconductors",
+          "articulationmatrix": {
+            "PO1": 3,
+            "PO11": 2,
+            "PSO1": 2,
+            "SO5": 3
+          }
+        },
+        {
+          "id": "CO3",
+          "statement": "Analyze carrier transport mechanisms",
+          "articulationmatrix": {
+            "PO1": 3,
+            "PO5": 2,
+            "PSO3": 1,
+            "SO1": 3
+          }
+        }
+      ],
+      "tools": [],
+      "references": {},
+      "warnings": []
+    }
+  ],
+  "errors": [],
+  "warnings": []
+}

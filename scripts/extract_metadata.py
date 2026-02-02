@@ -78,12 +78,12 @@ def extract_course_metadata(
     return CourseMetadata(
         category=category,
         course_type=course_type,
-        L=L,
-        T=T,
-        P=P,
-        X=X,
+        l=L,
+        t=T,
+        p=P,
+        x=X,
         ltpxtotal_hours=total_hours,
-        credits=C,
+        c=C,
         prerequisite=prerequisite,
         corequisite=corequisite,
     )

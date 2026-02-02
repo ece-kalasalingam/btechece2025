@@ -39,6 +39,8 @@ NBA / ABET articulation requirements
 """
 
 from validate_structure import ValidationError
+from typing import List, Dict
+import re
 
 from articulation_policy import (
     MAX_PO,
@@ -49,12 +51,13 @@ from articulation_policy import (
 
 def validate_articulation_rules(
     course_code: str,
-    declared_cos: set[str],
-    articulation_map: dict,
+    declared_cos: List[str],
+    articulation_map: Dict[str, Dict[str, int]],
 ) -> None:
 
-    # ---- Every CO must be present ----
-    missing = declared_cos - articulation_map.keys()
+    # ---- 1. Every declared CO must be present in the mapping ----
+    valid_ids = {line.split(":")[0].strip().upper() for line in declared_cos}
+    missing = valid_ids - articulation_map.keys()
     if missing:
         raise ValidationError(
             course_code,
@@ -62,45 +65,61 @@ def validate_articulation_rules(
             f"COs missing articulation: {sorted(missing)}"
         )
 
-    # ---- Validate each CO entry ----
-    for co, entries in articulation_map.items():
-        kinds = set()
+    # ---- 2. Validate each CO's internal mapping data ----
+    for co_id, matrix in articulation_map.items():
+        found_kinds = set()
 
-        for kind, idx, level in entries:
-            kinds.add(kind)
+        for key, level in matrix.items():
+            # Use regex to split "PO1" into "PO" and "1"
+            match = re.match(r"([A-Z]+)(\d*)", key.upper())
+            if not match:
+                continue
+            
+            kind = match.group(1)
+            idx_str = match.group(2)
+            idx = int(idx_str) if idx_str else None
+            
+            found_kinds.add(kind)
 
+            # Validate Level (1, 2, or 3)
             if level not in ALLOWED_LEVELS:
                 raise ValidationError(
                     course_code,
                     "ART-LEVEL-INVALID",
-                    f"{co}: invalid articulation level {level}"
+                    f"{co_id}: {key} has invalid articulation level {level}"
                 )
 
-            if kind == "PO" and not (1 <= idx <= MAX_PO):
-                raise ValidationError(
-                    course_code,
-                    "ART-PO-RANGE",
-                    f"{co}: PO{idx} out of range (1–{MAX_PO})"
-                )
+            # Validate PO Range
+            if kind == "PO":
+                if idx is None or not (1 <= idx <= MAX_PO):
+                    raise ValidationError(
+                        course_code,
+                        "ART-PO-RANGE",
+                        f"{co_id}: PO{idx_str} out of range (1 - {MAX_PO})"
+                    )
 
-            if kind == "PSO" and not (1 <= idx <= MAX_PSO):
-                raise ValidationError(
-                    course_code,
-                    "ART-PSO-RANGE",
-                    f"{co}: PSO{idx} out of range (1–{MAX_PSO})"
-                )
+            # Validate PSO Range
+            elif kind == "PSO":
+                if idx is None or not (1 <= idx <= MAX_PSO):
+                    raise ValidationError(
+                        course_code,
+                        "ART-PSO-RANGE",
+                        f"{co_id}: PSO{idx_str} out of range (1 - {MAX_PSO})"
+                    )
 
-            if kind == "SO" and not (1 <= idx <= MAX_SO):
-                raise ValidationError(
-                    course_code,
-                    "ART-SO-RANGE",
-                    f"{co}: SO{idx} out of range (1–{MAX_SO})"
-                )
+            # Validate SO Range
+            elif kind == "SO":
+                if idx is None or not (1 <= idx <= MAX_SO):
+                    raise ValidationError(
+                        course_code,
+                        "ART-SO-RANGE",
+                        f"{co_id}: SO{idx_str} out of range (1 - {MAX_SO})"
+                    )
 
-        # ---- Mandatory triple coverage ----
-        if "PO" not in kinds:
-            raise ValidationError(course_code, "ART-CO-PO-MISSING", f"{co} has no PO mapping")
-        if "PSO" not in kinds:
-            raise ValidationError(course_code, "ART-CO-PSO-MISSING", f"{co} has no PSO mapping")
-        if "SO" not in kinds:
-            raise ValidationError(course_code, "ART-CO-SO-MISSING", f"{co} has no SO mapping")
+        # ---- 3. Mandatory Coverage Check (PO, PSO, and SO must all exist) ----
+        if "PO" not in found_kinds:
+            raise ValidationError(course_code, "ART-CO-PO-MISSING", f"{co_id} has no PO mapping")
+        if "PSO" not in found_kinds:
+            raise ValidationError(course_code, "ART-CO-PSO-MISSING", f"{co_id} has no PSO mapping")
+        if "SO" not in found_kinds:
+            raise ValidationError(course_code, "ART-CO-SO-MISSING", f"{co_id} has no SO mapping")

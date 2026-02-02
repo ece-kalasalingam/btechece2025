@@ -113,46 +113,34 @@ def validate_course_objectives(course_code: str, sections: List[MarkdownSection]
 # Course Outcomes (COs)
 # ------------------------------------------------------------------
 
-def validate_course_outcomes(course_code: str, sections: List[MarkdownSection]) -> None:
+def validate_course_outcomes(course_code: str, sections: list) -> None:
     sec = _find_section(sections, ("course outcomes",))
     if not sec:
-        raise ValidationError(
-            course_code,
-            f"{COB_PREFIX}-MISSING",
-            "Course Outcomes section is missing"
-        )
+        raise ValidationError(course_code, "COB-MISSING", "Course Outcomes section missing")
 
     bullets = _extract_bullets(sec.body)
+    
     if not bullets:
-        raise ValidationError(
-            course_code,
-            f"{COB_PREFIX}-NO-BULLETS",
-            "Course Outcomes must be listed as bullet points"
-        )
+        raise ValidationError(course_code, "COB-NO-BULLETS", "Outcomes must be listed as bullet points")
 
-    cos = []
     for line in bullets:
-        cos.extend(CO_ID_RE.findall(line))
+        clean_line = line.strip().lstrip('-*+').strip() #line.strip().upper()
+        # Check if the line starts with 'CO' (e.g., CO1, CO 1, Course Outcome)
+        if clean_line.startswith("CO"):
+            raise ValidationError(
+                course_code, 
+                "COB-LABEL-FOUND", 
+                f"Remove 'CO' prefix from outcome: '{line[:15]}...'. "
+                "No manual mentioning of CO1, CO2 and so on."
+            )
 
-    unique_cos = sorted(
-        set(cos),
-        key=lambda x: int(re.findall(r"\d+", x)[0])
-    )
-
-    if len(unique_cos) < 3:
+    # KARE R2025: 3 to 7 outcomes required
+    if not (3 <= len(bullets) <= 7):
         raise ValidationError(
-            course_code,
-            f"{COB_PREFIX}-COUNT-LOW",
-            "Minimum number of Course Outcomes is 3"
+            course_code, 
+            "COB-COUNT", 
+            f"Found {len(bullets)} outcomes, but R2025 requires 3-7"
         )
-
-    if len(unique_cos) > 7:
-        raise ValidationError(
-            course_code,
-            f"{COB_PREFIX}-COUNT-HIGH",
-            "Maximum number of Course Outcomes is 7"
-        )
-
 
 # ------------------------------------------------------------------
 # Textbooks
@@ -289,10 +277,9 @@ def _extract_bullets(text: str) -> List[str]:
 def extract_declared_cos(
     course_code: str,
     sections: List[MarkdownSection],
-) -> set[str]:
+) -> List[str]:
     """
-    Extract declared CO identifiers (CO1, CO2, ...) from
-    the Course Outcomes section.
+    Extract declared the Course Outcomes section.
 
     Structure-only extraction. No semantic interpretation.
     """
@@ -312,16 +299,9 @@ def extract_declared_cos(
             "COB-NO-BULLETS",
             "Course Outcomes must be listed as bullet points"
         )
-
-    cos = []
     for line in bullets:
-        cos.extend(CO_ID_RE.findall(line))
-
-    if not cos:
-        raise ValidationError(
-            course_code,
-            "COB-NO-IDS",
-            "No CO identifiers (CO1, CO2, ...) found"
-        )
-
-    return {c.upper() for c in cos}
+        clean_line = line.strip().lstrip('-*+').strip() #line.strip().upper()
+    return [ 
+        f"CO{i+1}: {line.strip().lstrip('-*+').strip()}" 
+        for i, line in enumerate(bullets) if line.strip()
+    ]

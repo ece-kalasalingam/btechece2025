@@ -226,13 +226,9 @@ cross-stage leakage.
 ## **Stage-4 : Derived Views & Catalog Outputs**
 - Generate derived representations:
   - Self-study topics
-  - Seminar topics
-  - Course catalog views
-- Support:
-  - NBA view
-  - ABET view
-  - Student-friendly view
-- **Pure derivation — no validation**
+  - Design experience
+- only Tex Semantics
+- a signle master data tex file
 
 ---
 

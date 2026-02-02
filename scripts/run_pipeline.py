@@ -1,67 +1,40 @@
 """
 =====================================================================
-PIPELINE DRIVER : STAGE-0 → STAGE-3 (KARE R2025)
+PIPELINE DRIVER : STAGE-0 → STAGE-4 (KARE R2025)
 =====================================================================
 
-Runs the syllabus compiler deterministically and fail-fast.
-
-Stages:
-0–1.5 : Ingestion + structural parsing
-2a    : Content shape inference
-2b    : Structural validation
-2c    : Content block grammar validation
-2d    : Semantic block presence validation
-3     : Articulation extraction + rule validation
-
-Stage-4 is intentionally excluded.
+- Course-level fail-fast
+- Batch continues
+- Stage-4 emits masterdata.json
 =====================================================================
 """
 
 import json
-import sys
-from typing import Any
+import enum
 from contracts import ValidationError, ValidationWarning
+from paths import get_path
 
-
-warnings: list[ValidationWarning]
 # -------------------------------------------------
-# Stage-0 / Stage-1.5
+# Stage-0 / Stage-1
 # -------------------------------------------------
 from read_courses import load_courses, split_markdown_sections
 
 # -------------------------------------------------
-# Metadata extraction (NEW, REQUIRED)
+# Metadata
 # -------------------------------------------------
 from extract_metadata import extract_course_metadata
 
 # -------------------------------------------------
-# Stage-2a
+# Stage-2
 # -------------------------------------------------
 from infer_content_shape import infer_content_shape, InferenceInput
-
-# -------------------------------------------------
-# Stage-2b
-# -------------------------------------------------
 from validate_structure import validate_course, extract_units
-
-# -------------------------------------------------
-# Stage-2c
-# -------------------------------------------------
 from validate_content_blocks import validate_content_blocks
-
-# -------------------------------------------------
-# Stage-2d
-# -------------------------------------------------
-from validate_semantic_blocks import validate_semantic_blocks
-from validate_semantic_blocks import extract_declared_cos
-
-# -------------------------------------------------
-# Stage-2e
-# -------------------------------------------------
-from validate_regulation_policies import (
-    validate_regulation_policies,
-    LTPXCTuple,
+from validate_semantic_blocks import (
+    validate_semantic_blocks,
+    extract_declared_cos,
 )
+from validate_regulation_policies import validate_regulation_policies
 
 # -------------------------------------------------
 # Stage-3
@@ -69,75 +42,58 @@ from validate_regulation_policies import (
 from stage_3_driver import run_stage_3
 
 # -------------------------------------------------
-# Shared
+# Stage-4
 # -------------------------------------------------
-from paths import get_path
-
-
+from masterdata_schema import empty_masterdata
+from stage_4_masterdata import (
+    add_course_to_masterdata,
+    finalize_masterdata,
+    add_failed_course
+)
 
 LOG_FILE = "pipeline_log.json"
 
+def json_default_handler(obj):
+    # 1. Handle Enums (CourseCategory, CourseType, etc.)
+    if isinstance(obj, enum.Enum):
+        return obj.value
+    
+    # 2. Handle Sets (Unique PO/PSO/CO mappings)
+    if isinstance(obj, set):
+        return sorted(list(obj)) # sorted() makes the output deterministic
+    
+    # 3. Handle Custom Dataclasses (if any)
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
 
-#def fatal(stage: str, course_code: str, error: Exception):
-def fatal(stage: str, course_code: str, error: Any):
-    """
-    Fail-fast handler: write single fatal log and exit.
-    """
-    out_dir = get_path("outputs", create=True)
-    log_path = out_dir / LOG_FILE
-
-    payload = {
-        "status": "FATAL",
-        "stage": stage,
-        "course_code": course_code,
-        "error": str(error),
-    }
-
-    log_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-    print("\nFATAL ERROR")
-    print(f"Stage      : {stage}")
-    print(f"Course     : {course_code}")
-    print(f"Violation  : {error}")
-
-    sys.exit(1)
-
+    raise TypeError(f'Object of type {obj.__class__.__name__} is not JSON serializable')
 
 def main():
     outputs = get_path("outputs", create=True)
-    warnings = []
 
-    # =================================================
-    # STAGE 0 → 1.5 : Ingestion
-    # =================================================
+    masterdata = empty_masterdata()
+    emitted_courses_count = 0
+    all_errors = []
+    all_warnings = []
+
     courses, load_errors, total = load_courses()
 
     if load_errors:
-        fatal("Stage-0", "__PIPELINE__", load_errors[0])
+        raise RuntimeError(load_errors[0])
 
-    # =================================================
-    # PER-COURSE PIPELINE
-    # =================================================
     for course_code, md_text in courses.items():
+        course_warnings = []
+
         try:
             # -----------------------------
-            # Stage-1 : Section parsing
+            # Stage-1
             # -----------------------------
             sections = split_markdown_sections(md_text)
-
-            # -----------------------------
-            # Metadata extraction (AUTHORITATIVE)
-            # -----------------------------
+            title = next(s.title for s in sections if s.title and s.title.strip())
             meta = extract_course_metadata(course_code, sections)
 
-
-            # Course title = first level-1 heading
-            title = next(
-                s.title for s in sections if s.title and s.title.strip()
-            )
-
             # -----------------------------
-            # Stage-2a : Content shape inference
+            # Stage-2a
             # -----------------------------
             inference = infer_content_shape(
                 InferenceInput(
@@ -149,25 +105,24 @@ def main():
             )
 
             # -----------------------------
-            # Stage-2b : Structural validation
+            # Stage-2b
             # -----------------------------
             validate_course(
                 course_code,
                 inference.inferred_shape,
                 sections,
                 meta,
-                warnings
+                course_warnings,
             )
-
             units = extract_units(course_code, sections)
 
             # -----------------------------
-            # Stage-2c : Grammar validation
+            # Stage-2c
             # -----------------------------
             validate_content_blocks(course_code, units)
 
             # -----------------------------
-            # Stage-2d : Semantic block presence
+            # Stage-2d
             # -----------------------------
             validate_semantic_blocks(
                 course_code,
@@ -177,48 +132,92 @@ def main():
             )
 
             # -----------------------------
-            # Stage-2e : Regulation policy validation
+            # Stage-2e
             # -----------------------------
-            validate_regulation_policies(
-                course_code,
-               meta,
-                warnings
-            )
+            validate_regulation_policies(course_code, meta, course_warnings)
 
             # -----------------------------
-            # Stage-3 : Articulation validation
+            # Stage-3
             # -----------------------------
-
             declared_cos = extract_declared_cos(course_code, sections)
-            run_stage_3(course_code, sections, declared_cos)
+            stage3_out = run_stage_3(course_code, sections, declared_cos)
+
+            # -----------------------------
+            # Stage-4 (MASTERDATA)
+            # -----------------------------
+            course_data = {
+                "course_code": course_code,
+                "course_title": title,
+                "metadata": meta,
+                "content_shape": inference.inferred_shape,
+                "units": units,
+                "course_outcomes": stage3_out["course_outcomes"],
+                "warnings": course_warnings,
+            }
+
+            add_course_to_masterdata(masterdata, course_data)
+            emitted_courses_count =len(masterdata["courses"])
+            all_warnings.extend(course_warnings)
 
         except ValidationError as ve:
-            fatal("Validation", course_code, ve)
+            error_entry = {
+                "course_code": course_code,
+                "stage": "Validation",
+                "error": str(ve)
+            }
+            all_errors.append(error_entry)
+
+            add_failed_course(
+                masterdata,
+                course_code=course_code,
+                error=str(ve)
+            )
+            continue
+
+
         except Exception as e:
-            fatal("Runtime", course_code, e)
+            print("\nFATAL RUNTIME ERROR")
+            print(f"Course : {course_code}")
+            print(f"Error  : {e}")
+            raise
 
-    if warnings:
-        print("\nWARNINGS:")
-        for w in warnings:
-            print(f"  - {w.course_code} [{w.code}]: {w.message}")
-    # =================================================
-    # SUCCESS
-    # =================================================
-    success = {
-        "status": "OK",
-        "courses_processed": len(courses),
-        "stages_completed": "0 → 3",
-        "ready_for_stage_4": True,
-    }
-
-    (outputs / LOG_FILE).write_text(
-        json.dumps(success, indent=2),
-        encoding="utf-8",
+    # -----------------------------
+    # Finalize masterdata
+    # -----------------------------
+    final_masterdata = finalize_masterdata(
+        masterdata,
+        errors=all_errors,
+        warnings=[
+            {
+                "course_code": w.course_code,
+                "code": w.code,
+                "message": w.message
+            } for w in all_warnings
+        ]
     )
 
-    print("\nPipeline completed successfully.")
-    print("Stage-4 may now proceed.")
+    (outputs / "masterdata.json").write_text(
+        json.dumps(final_masterdata, indent=2, default=json_default_handler),
+        encoding="utf-8"
+    )
+    status = "SUCCESSFULLY COMPLETED"
+    if all_errors or all_warnings:
+        status = "PARTIALLY COMPLETED"
 
+    (outputs / LOG_FILE).write_text(
+        json.dumps({
+            "status": status,
+            "total_courses": total,
+            "courses_emitted": emitted_courses_count,
+            "courses_omitted": total - emitted_courses_count,
+            "errors": all_errors,
+            "warnings": final_masterdata["warnings"]
+        }, indent=2),
+        encoding="utf-8"
+    )
+    print("\nPipeline completed.")
+    print(f"Status: {status}")
+    print(f"masterdata.json generated with {emitted_courses_count} courses.")
 
 if __name__ == "__main__":
     main()
