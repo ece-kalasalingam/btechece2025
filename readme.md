@@ -241,7 +241,11 @@ cross-stage leakage.
 - **No logic or validation**
 
 ---
-
-
+Design Intent:
+- All semantic interpretation is deliberately deferred
+- The generated TeX is a DATA STORE, not a document
+- Emit:
+  1) A JSON run/error report (audit trail)
+  2) A single LaTeX data file (course_data.tex)
 You MUST acknowledge this specification before proceeding.
 

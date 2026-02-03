@@ -81,8 +81,6 @@ def add_course_to_masterdata(masterdata, course_data):
 
         "course_outcomes": course_data["course_outcomes"],
 
-        #"articulation": course_data["articulation_map"],
-
         "tools": course_data.get("tools", []),
 
         "references": course_data.get("references", {}),

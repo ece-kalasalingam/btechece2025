@@ -1,62 +1,139 @@
-# contracts.py
-from dataclasses import dataclass
-from enum import Enum
-from typing import Optional
+"""
+SHARED DATA CONTRACTS
+Common types and enums used across all pipeline stages.
+"""
 
-# =====================================================================
-# POLICY VERSION
-# =====================================================================
+from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import List, Optional, Any, Dict
 
-POLICY_VERSION = "R2025_v1.0"
+# ---------------------------------------------------------------------
+# 1. Base Structure (Stage 1)
+# ---------------------------------------------------------------------
 
-# =====================================================================
-# ENUMERATIONS (STABLE VALUES — NO auto())
-# =====================================================================
+class BlockType(Enum):
+    """Structural classification of content chunks."""
+    BULLET = auto()
+    PARAGRAPH = auto()
 
-class CourseCategory(Enum):
-    FCM = "FCM"   # Foundation Course Mandatory
-    FCE = "FCE"   # Foundation Course Elective
-    PCM = "PCM"   # Program Course Mandatory (includes Capstone)
-    PCE = "PCE"   # Program Course Elective
-    SEM = "SEM"   # Skill Enhancement Mandatory (Internship)
-    SEE = "SEE"   # Skill Enhancement Elective
-    MDM = "MDM"   # Multidisciplinary Mandatory (EXSEL)
-    MDE = "MDE"   # Multidisciplinary Elective
-
-
-class CourseType(Enum):
-    TC = "TC"       # Theory Course
-    PC = "PC"       # Practical Course
-    IC_T = "IC-T"   # Integrated Course – Theory dominant
-    IC_P = "IC-P"   # Integrated Course – Practical dominant
-    SC = "SC"       # Skill Course
-
+    
+@dataclass(frozen=True)
+class MarkdownBlock:
+    type: BlockType
+    content: str
 
 @dataclass(frozen=True)
 class MarkdownSection:
-    level: int          # 0 for preamble, 1+ for headers
-    title: str          # "__PREAMBLE__" or header text
-    body: str           # raw content under this section
-
-class ValidationError(Exception):
-    def __init__(self, course_code: str, invariant_id: str, message: str):
-        super().__init__(f"{course_code} [{invariant_id}]: {message}")
+    """Raw structural output from Stage 1 parsing."""
+    level: int
+    title: str
+    body: str
 
 @dataclass(frozen=True)
-class ValidationWarning:
+class StructuredSection:
+    section: MarkdownSection
+    blocks: List[MarkdownBlock]
+# ---------------------------------------------------------------------
+# 2. Metadata & Domain Types
+# ---------------------------------------------------------------------
+
+class CourseCategory(Enum):
+    FCM = "FCM"  # Foundation Core
+    PCM = "PCM"  # Programme Core
+    SEM = "SEM"  # Skill Enhancement
+    # Add other categories as per R2025
+
+class CourseType(Enum):
+    TC = "TC"      # Theory Course
+    PC = "PC"      # Practical Course
+    IC_T = "IC-T"  # Integrated Course (Theory weighted)
+    IC_P = "IC-P"  # Integrated Course (Practical weighted)
+    SC = "SC"      # Skill Course
+    PROJ = "PROJ"  # Project
+
+class ContentShape(Enum):
+    """The semantic hinge determined in Stage 2."""
+    ACADEMIC_THEORY = "academic_theory"
+    ACADEMIC_INTEGRATED = "academic_integrated"
+    SKILL_PRACTICE = "skill_practice"
+    PROJECT = "project"
+
+@dataclass(frozen=True)
+class CourseMetadata:
+    """The 'Administrative DNA' of the course."""
+    course_code: str
+    course_title: str
+    category: CourseCategory
+    course_type: CourseType
+    l: int
+    t: int
+    p: int
+    x: int
+    c: float
+    prerequisite: Optional[str] = None
+    corequisite: Optional[str] = None
+
+# ---------------------------------------------------------------------
+# 3. Validation & Reporting
+# ---------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ValidationError(Exception):
+    """Fatal structural or regulation violation."""
     course_code: str
     code: str
     message: str
 
 @dataclass(frozen=True)
-class CourseMetadata:
-    category: CourseCategory
-    course_type: CourseType
-    ltpxtotal_hours: int
-    c: float
-    l: int
-    t: int
-    p: int
-    x: int
-    prerequisite: Optional[str] = None
-    corequisite: Optional[str] = None
+class ValidationWarning:
+    """Non-fatal guideline deviation."""
+    course_code: str
+    code: str
+    message: str
+
+# ---------------------------------------------------------------------
+# 4. Pipeline Constants
+# ---------------------------------------------------------------------
+
+PREAMBLE_TITLE = "PREAMBLE"
+POLICY_VERSION = "R2025-1.0"
+
+# ---------------------------------------------------------------------
+# 5. Lifted Academic Objects (New additions)
+# ---------------------------------------------------------------------
+
+@dataclass
+class LiftedActivity:
+    """Represents an experiment, task, or activity within a unit."""
+    name: str
+    description: str
+
+@dataclass
+class LiftedUnit:
+    number: int
+    title: str
+    theory_hours: int = 0  # To be extracted
+    lab_hours: int = 0     # To be extracted
+    x_hours: int = 0       # To be extracted
+    topics: List[str] = field(default_factory=list)
+    activities: List[LiftedActivity] = field(default_factory=list)
+
+@dataclass(frozen=True)
+class CourseComponent:
+    """The final articulated output for a specific mode (TH, PR, or XA)."""
+    type_code: str  # 'TH', 'PR', 'XA'
+    contact_hours: int
+    credits: float
+    content_summary: List[str]
+
+@dataclass(frozen=True)
+class AssessmentComponent:
+    name: str          # e.g., "Sessional Exam 1", "Assignment", "Lab Rubric"
+    weightage: int     # e.g., 20 (for 20%)
+
+@dataclass
+class AssessmentStrategy:
+    course_type_code: str  # TC, PC, IC, SC
+    cia_weight: int        # Total CIA %
+    ese_weight: int        # Total ESE %
+    components: List[AssessmentComponent] = field(default_factory=list)

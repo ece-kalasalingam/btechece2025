@@ -4,9 +4,7 @@ PIPELINE STAGE: 0 → 1.5  (Ingestion + Structural Parsing + Serialization)
 Purpose:
 - Load course Markdown files listed in courses_md/index.md
 - Preserve deterministic order
-- Emit:
-  1) A JSON run/error report (audit trail)
-  2) A single LaTeX data file (course_data.tex)
+
 
 ARCHITECTURAL CONSTRAINTS:
 - This module MUST NOT parse Markdown structure
@@ -18,10 +16,6 @@ ARCHITECTURAL CONSTRAINTS:
 - MUST NOT assign meaning to headers
 - MUST NOT generate LaTeX layout
 
-
-Design Intent:
-- All semantic interpretation is deliberately deferred
-- The generated TeX is a DATA STORE, not a document
 
 """
 
@@ -142,13 +136,6 @@ class CourseError:
     stage: str
     message: str
 
-def tex_detokenize(value: str) -> str:
-    """
-    Wrap arbitrary text safely for TeX without altering content semantics.
-    """
-    safe = value.replace("{", "\\{").replace("}", "\\}")
-    return f"\\detokenize{{{safe}}}"
-
 def read_course_index(index_path: Path) -> List[str]:
     course_codes: List[str] = []
     seen: set[str] = set()
@@ -226,122 +213,3 @@ def write_report(
         encoding="utf-8"
     )
     return report_path
-
-def write_master_course_tex(
-    output_dir: Path,
-    courses: Dict[str, str],
-) -> Path:
-    """
-    Write a single master TeX file containing all courses
-    and their Stage-1 Markdown sections as pure data.
-    """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    tex_path = output_dir / MASTER_TEX_FILENAME
-
-    with tex_path.open("w", encoding="utf-8") as f:
-        f.write("% ==================================================\n")
-        f.write("% AUTO-GENERATED FILE — DO NOT EDIT\n")
-        f.write("% Course + Section data (Stage-1)\n")
-        f.write("% DATA ONLY — NO LAYOUT, NO SEMANTICS\n")
-        f.write("% ==================================================\n\n")
-
-        # Total number of courses
-        f.write(f"\\def\\TotalCourses{{{len(courses)}}}\n\n")
-
-        # --------------------------------------------------
-        # Per-course data
-        # --------------------------------------------------
-        for c_idx, (code, md_text) in enumerate(courses.items(), start=1):
-            sections = split_markdown_sections(md_text)
-
-            f.write(f"% ---------- COURSE {c_idx} ----------\n")
-
-            # Course-level metadata
-            f.write(
-                f"\\expandafter\\def\\csname CourseCode@{c_idx}\\endcsname"
-                f"{{{tex_detokenize(code)}}}\n"
-            )
-
-            # Section count for this course
-            f.write(
-                f"\\expandafter\\def\\csname CourseSecCount@{c_idx}\\endcsname"
-                f"{{{len(sections)}}}\n"
-            )
-
-            # --------------------------------------------------
-            # Per-section data
-            # --------------------------------------------------
-            for s_idx, sec in enumerate(sections, start=1):
-                f.write(
-                    f"\\expandafter\\def\\csname CourseSecLevel@{c_idx}@{s_idx}\\endcsname"
-                    f"{{{sec.level}}}\n"
-                )
-                f.write(
-                    f"\\expandafter\\def\\csname CourseSecTitle@{c_idx}@{s_idx}\\endcsname"
-                    f"{{{tex_detokenize(sec.title)}}}\n"
-                )
-                f.write(
-                    f"\\expandafter\\def\\csname CourseSecBody@{c_idx}@{s_idx}\\endcsname"
-                    f"{{{tex_detokenize(sec.body)}}}\n"
-                )
-
-            f.write("\n")
-
-    return tex_path
-
-if __name__ == "__main__":
-    outputs_dir = None
-
-    try:
-        courses, errors, total = load_courses()
-        outputs_dir = get_path(OUTPUTS_DIRNAME, create=True)
-
-        status = "OK" if not errors else "PARTIAL"
-
-        report_path = write_report(
-            output_dir=outputs_dir,
-            total_listed=total,
-            loaded_count=len(courses),
-            errors=errors,
-            status=status,
-        )
-
-        print(f"Run completed with status: {status}")
-        print(f"Report written to: {report_path}")
-
-        if not courses:
-            print("No valid courses loaded. Aborting.")
-            raise SystemExit(1)
-        tex_path = write_master_course_tex(
-            output_dir=outputs_dir,
-            courses=courses,
-        )
-        print(f"Master TeX data written to: {tex_path}")
-
-    except Exception as fatal:
-        print("FATAL ERROR:")
-        print(fatal)
-
-        # FATAL errors are also reported using SAME mechanism
-        if outputs_dir is None:
-            try:
-                outputs_dir = get_path(OUTPUTS_DIRNAME, create=True)
-            except Exception:
-                outputs_dir = None
-
-        if outputs_dir is not None:
-            fatal_error = CourseError(
-                course_code="__PIPELINE__",
-                stage="fatal",
-                message=str(fatal),
-            )
-
-            write_report(
-                output_dir=outputs_dir,
-                total_listed=None,
-                loaded_count=None,
-                errors=[fatal_error],
-                status="FATAL",
-            )
-
-        raise SystemExit(1)
