@@ -1,0 +1,17 @@
+# --- Core Processing & Data Handling ---
+# Used for data structuring and dashboard generation
+pandas>=2.0.0
+# Used for generating Markdown tables in the dashboard
+tabulate>=0.9.0
+
+# --- Stage 6a: Document Rendering ---
+# Used for HTML syllabus templating
+jinja2>=3.1.0
+
+# --- Stage 7: User Interface ---
+# The main UI framework for VS Code local execution
+streamlit>=1.30.0
+
+# --- Utilities ---
+# Useful if you decide to use advanced regex or type checking later
+pydantic>=2.0.0
