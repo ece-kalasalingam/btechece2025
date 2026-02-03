@@ -102,21 +102,7 @@ POLICY_VERSION = "R2025-1.0"
 # 5. Lifted Academic Objects (New additions)
 # ---------------------------------------------------------------------
 
-@dataclass
-class LiftedActivity:
-    """Represents an experiment, task, or activity within a unit."""
-    name: str
-    description: str
 
-@dataclass
-class LiftedUnit:
-    number: int
-    title: str
-    theory_hours: int = 0  # To be extracted
-    lab_hours: int = 0     # To be extracted
-    x_hours: int = 0       # To be extracted
-    topics: List[str] = field(default_factory=list)
-    activities: List[LiftedActivity] = field(default_factory=list)
 
 @dataclass(frozen=True)
 class CourseComponent:
@@ -137,3 +123,20 @@ class AssessmentStrategy:
     cia_weight: int        # Total CIA %
     ese_weight: int        # Total ESE %
     components: List[AssessmentComponent] = field(default_factory=list)
+
+@dataclass
+class ActivityBlock:
+    title: str
+    description: str
+
+@dataclass
+class UnitBlock:
+    number: int
+    title: str
+    topics: List[str] = field(default_factory=list)
+    experiments: List[ActivityBlock] = field(default_factory=list)
+    x_activities: List[ActivityBlock] = field(default_factory=list)
+    theory_hours: Optional[int] = None
+    lab_hours: Optional[int] = None
+    x_hours: Optional[int] = None
+    mapped_cos: List[str] = field(default_factory=list)

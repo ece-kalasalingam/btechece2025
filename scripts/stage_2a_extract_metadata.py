@@ -19,14 +19,22 @@ META_RE = {
 }
 
 def extract_course_metadata(course_code: str, structured_sections: List[StructuredSection]) -> CourseMetadata:
-    # 1. Locate Preamble
-    preamble = next((s for s in structured_sections if s.section.title == PREAMBLE_TITLE), None)
+    # 1. Locate Preamble (ROBUST VERSION)
+    # We look for the internal __PREAMBLE__ OR a section explicitly titled 'COURSE METADATA'
+    preamble = next(
+        (s for s in structured_sections if s.section.title in ["__PREAMBLE__", "COURSE METADATA", PREAMBLE_TITLE]), 
+        None
+    )
     
+    # If the __PREAMBLE__ was empty, try specifically to find 'COURSE METADATA'
+    if not preamble or not preamble.section.body:
+        preamble = next((s for s in structured_sections if "METADATA" in s.section.title.upper()), None)
+
     if not preamble or not preamble.section.body:
         raise ValidationError(course_code, "META-MISSING", "Preamble metadata block is empty or missing")
 
     body = preamble.section.body
-
+    
     # 2. Extract matches
     cat_match = META_RE["category"].search(body)
     type_match = META_RE["type"].search(body)

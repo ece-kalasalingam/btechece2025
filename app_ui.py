@@ -2,51 +2,109 @@ import streamlit as st
 import os
 import json
 import pandas as pd
+
+# Stage Imports from your verified structure
 from run_pipeline import run_full_pipeline
 from scripts.stage_6c_audit_dashboard import generate_dept_dashboard
+from scripts.stage_6a_render_docs import render_syllabus
 
+# --- CONFIGURATION ---
 st.set_page_config(page_title="R2025 Syllabus Auditor", layout="wide")
+INPUT_DIR = "syllabi_input"
+OUTPUT_DIR = "output_verified"
+RENDERED_DIR = "rendered_syllabi"
 
+# Defensive: Ensure all required directories exist immediately
+for folder in [INPUT_DIR, OUTPUT_DIR, RENDERED_DIR]:
+    os.makedirs(folder, exist_ok=True)
+
+# --- HEADER ---
 st.title("🎓 R2025 Syllabus Engineering Pipeline")
-st.sidebar.header("Control Panel")
+st.markdown("---")
 
-# 1. Pipeline Execution
-input_dir = "syllabi_input"
-if st.sidebar.button("🚀 Run Full Audit Pipeline"):
-    with st.spinner("Processing syllabi..."):
-        # This calls your existing orchestrator
-        for file in os.listdir(input_dir):
-            if file.endswith(".md"):
-                run_full_pipeline(os.path.join(input_dir, file))
-        generate_dept_dashboard() # Refresh dashboard data
-    st.sidebar.success("Pipeline Complete!")
+# --- SIDEBAR: Control Panel ---
+st.sidebar.header("🚀 Control Panel")
 
-# 2. View Department Dashboard
+# Get list of markdown files for the UI
+input_files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".md")]
+
+if st.sidebar.button("Run Full Audit Pipeline"):
+    if not input_files:
+        st.sidebar.error(f"No .md files found in /{INPUT_DIR}. Add files to proceed.")
+    else:
+        with st.spinner("Executing Pipeline Stages 1-6..."):
+            try:
+                # 1. Run Core Pipeline (1-5)
+                for file in input_files:
+                    run_full_pipeline(os.path.join(INPUT_DIR, file))
+                
+                # 2. Run Dashboard Aggregation (6c)
+                generate_dept_dashboard()
+                
+                # 3. Pre-render HTML files (6a)
+                for json_file in os.listdir(OUTPUT_DIR):
+                    if json_file.endswith(".json"):
+                        render_syllabus(os.path.join(OUTPUT_DIR, json_file), output_dir=RENDERED_DIR)
+                
+                st.sidebar.success("Pipeline Completed Successfully!")
+                st.rerun() # Refresh the dashboard view
+            except Exception as e:
+                st.sidebar.error(f"Pipeline Failed: {e}")
+
+# --- MAIN AREA: Dashboard ---
 st.header("📊 Department Audit Overview")
-if os.path.exists("DASHBOARD.md"):
-    # We can read the generated JSONs to show a live table
-    verified_dir = "output_verified"
+
+# Check if we have data to show
+if os.path.exists(OUTPUT_DIR) and any(f.endswith('.json') for f in os.listdir(OUTPUT_DIR)):
     summary_data = []
-    for file in os.listdir(verified_dir):
+    for file in os.listdir(OUTPUT_DIR):
         if file.endswith(".json"):
-            with open(os.path.join(verified_dir, file), "r") as f:
+            with open(os.path.join(OUTPUT_DIR, file), "r", encoding="utf-8") as f:
                 data = json.load(f)
+                # Safely extract nested data for the table
+                meta = data.get("syllabus_data", {}).get("metadata", {})
                 summary_data.append({
-                    "Code": data["course_code"],
-                    "Title": data["syllabus_data"]["metadata"]["course_title"],
-                    "Credits": data["syllabus_data"]["metadata"]["c"],
-                    "Status": data["audit_meta"]["status"]
+                    "Course Code": data.get("course_code", "N/A"),
+                    "Course Title": meta.get("course_title", "N/A"),
+                    "Credits": meta.get("c", 0),
+                    "Status": data.get("audit_meta", {}).get("status", "Unknown")
                 })
-    st.table(pd.DataFrame(summary_data))
+    
+    # Display as a searchable dataframe
+    df = pd.DataFrame(summary_data)
+    st.dataframe(df, use_container_width=True, hide_index=True)
 else:
-    st.info("Run the pipeline to see the dashboard.")
+    st.info(f"📂 No verified data found. Place your .md files in **{INPUT_DIR}** and click 'Run' to begin.")
 
-# 3. Individual File Preview
-st.header("📝 Syllabus Preview")
-selected_file = st.selectbox("Select a verified course to view:", 
-                             [f for f in os.listdir("output_verified") if f.endswith(".json")] if os.path.exists("output_verified") else [])
+st.markdown("---")
 
-if selected_file:
-    with open(os.path.join("output_verified", selected_file), "r") as f:
-        content = json.load(f)
-        st.json(content)
+# --- DOWNLOAD SECTION ---
+st.header("📥 Export Verified Syllabi")
+
+verified_files = [f.replace(".json", "") for f in os.listdir(OUTPUT_DIR) if f.endswith(".json")]
+
+if verified_files:
+    col1, col2 = st.columns([2, 1])
+    with col1:
+        selected_course = st.selectbox("Select a course to download:", verified_files)
+    
+    with col2:
+        # Construct the HTML path generated by Stage 6a
+        html_path = os.path.join(RENDERED_DIR, f"{selected_course}_verified.html")
+        
+        if os.path.exists(html_path):
+            with open(html_path, "r", encoding="utf-8") as f:
+                html_bytes = f.read()
+            
+            st.write(" ") # Padding
+            st.download_button(
+                label="Download HTML / PDF",
+                data=html_bytes,
+                file_name=f"{selected_course}_R2025.html",
+                mime="text/html",
+                use_container_width=True
+            )
+        else:
+            st.warning("Rendered file missing. Run pipeline again.")
+else:
+    st.caption("Verified exports will appear here after a successful run.")

@@ -40,6 +40,7 @@ def run_stage_2(
 
     # 1. Metadata Extraction
     metadata = meta_extractor.extract_course_metadata(course_code, structured_sections)
+    print(f"DEBUG: Found : {metadata.category}")
     reg_validator.validate_basic_metadata(course_code, metadata)
 
     # 2. Shape Inference
