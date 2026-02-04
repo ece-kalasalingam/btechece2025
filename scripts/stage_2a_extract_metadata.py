@@ -4,8 +4,14 @@ Verbatim: Pulls Category, Type, LTPXC, and Prerequisites from the Preamble.
 """
 import re
 from typing import List
-from scripts.contracts import CourseMetadata, CourseCategory, CourseType, PREAMBLE_TITLE, ValidationError, StructuredSection
-
+from scripts.contracts import (
+    CourseMetadata, 
+    CourseCategory, 
+    CourseType, 
+    PREAMBLE_TITLE, 
+    ValidationError, 
+    StructuredSection
+)
 
 # Patterns for R2025 metadata blocks
 META_RE = {
@@ -14,19 +20,21 @@ META_RE = {
     "ltpxc": re.compile(r"([0-9])\s*-\s*([0-9])\s*-\s*([0-9])\s*-\s*([0-9])\s*-\s*([0-9.]+)", re.I),
     "prereq": re.compile(r"prerequisite\s*:\s*(.*)", re.I),
     "coreq": re.compile(r"corequisite\s*:\s*(.*)", re.I),
-    # NEW: Pattern to find the Title if it's written in the preamble body
     "title": re.compile(r"course\s*title\s*:\s*(.*)", re.I) 
 }
 
 def extract_course_metadata(course_code: str, structured_sections: List[StructuredSection]) -> CourseMetadata:
-    # 1. Locate Preamble (ROBUST VERSION)
-    # We look for the internal __PREAMBLE__ OR a section explicitly titled 'COURSE METADATA'
+    """
+    Identifies the preamble section and extracts the administrative 
+    LTPXC and Course Categorization data.
+    """
+    # 1. Locate Preamble Section
     preamble = next(
         (s for s in structured_sections if s.section.title in ["__PREAMBLE__", "COURSE METADATA", PREAMBLE_TITLE]), 
         None
     )
     
-    # If the __PREAMBLE__ was empty, try specifically to find 'COURSE METADATA'
+    # Fallback if the standard title isn't found
     if not preamble or not preamble.section.body:
         preamble = next((s for s in structured_sections if "METADATA" in s.section.title.upper()), None)
 
@@ -39,25 +47,48 @@ def extract_course_metadata(course_code: str, structured_sections: List[Structur
     cat_match = META_RE["category"].search(body)
     type_match = META_RE["type"].search(body)
     ltpxc_match = META_RE["ltpxc"].search(body)
-    
-    # NEW: Extract Course Title (or default to "Untitled Course")
     title_match = META_RE["title"].search(body)
-    course_title = title_match.group(1).strip() if title_match else "Unknown Course"
-
-    # 3. Explicit Guard (Silences Pylance "group is not attribute of None")
+    
+    # 3. Explicit Guard: Ensures all mandatory fields are present
+    # This narrowing tells Pylance that the .group() calls below are safe.
     if cat_match is None or type_match is None or ltpxc_match is None:
         raise ValidationError(course_code, "META-INCOMPLETE", "Missing Category, Type, or LTPXC in preamble")
 
-    # 4. Optional Match handling
+    # 4. Extract strings from matches immediately after the guard
+    raw_cat_str = cat_match.group(1).upper()
+    raw_type_str = type_match.group(1).upper().replace("-", "_")
+    course_title = title_match.group(1).strip() if title_match else "Unknown Course"
+
+    # 5. Enum Casting with deterministic error handling
+    try:
+        category_val = CourseCategory(raw_cat_str)
+    except ValueError:
+        raise ValidationError(
+            course_code, 
+            "META-INVALID-CATEGORY", 
+            f"'{raw_cat_str}' is not a valid R2025 Course Category."
+        )
+
+    try:
+        type_val = CourseType(raw_type_str)
+    except ValueError:
+        raise ValidationError(
+            course_code, 
+            "META-INVALID-TYPE", 
+            f"'{raw_type_str}' is not a valid R2025 Course Type."
+        )
+
+    # 6. Optional Match handling (Safe to use .group because we check presence)
     pre_match = META_RE["prereq"].search(body)
     co_match = META_RE["coreq"].search(body)
 
-    # 5. Return the object using correctly named local variables
+    # 7. Final Object Assembly
+    # Since ltpxc_match was part of the Guard, .group(n) is safe here
     return CourseMetadata(
-        category=CourseCategory(cat_match.group(1).upper()),
-        course_type=CourseType(type_match.group(1).upper()),
-        course_code=course_code,  # FIXED: Use the argument passed to function
-        course_title=course_title, # FIXED: Use extracted course_title
+        category=category_val,
+        course_type=type_val,
+        course_code=course_code,
+        course_title=course_title,
         l=int(ltpxc_match.group(1)),
         t=int(ltpxc_match.group(2)),
         p=int(ltpxc_match.group(3)),

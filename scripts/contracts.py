@@ -5,7 +5,15 @@ Common types and enums used across all pipeline stages.
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List, Optional, Any, Dict
+from typing import List, Optional, Tuple
+
+# ---------------------------------------------------------------------
+# File System Constants
+# ---------------------------------------------------------------------
+COURSES_DIRNAME = "courses_md"
+OUTPUTS_DIRNAME = "outputs"
+INDEX_FILENAME = "index.md"
+REPORT_FILENAME = "ingestion_report.json"
 
 # ---------------------------------------------------------------------
 # 1. Base Structure (Stage 1)
@@ -131,11 +139,17 @@ class ActivityBlock:
 
 @dataclass
 class UnitBlock:
+    # Step 1: Semantic Content (Stage 2 Driver)
     number: int
     title: str
-    topics: List[str] = field(default_factory=list)
+    topics: List[Tuple[str, str]] = field(default_factory=list) # (Topic, Detail)
     experiments: List[ActivityBlock] = field(default_factory=list)
     x_activities: List[ActivityBlock] = field(default_factory=list)
+
+    # Step 2: Author-declared intent (Stage 2 Driver)
+    raw_co_indices: List[int] = field(default_factory=list)
+
+    # Step 3: Enriched / Validated data (Stage 2f & Stage 3)
     theory_hours: Optional[int] = None
     lab_hours: Optional[int] = None
     x_hours: Optional[int] = None

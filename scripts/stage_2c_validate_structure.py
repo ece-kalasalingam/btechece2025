@@ -4,12 +4,15 @@ Verbatim: Enforces R2025 Section 4.5 (5-Unit Rule) and Project constraints.
 """
 from typing import List
 from scripts.contracts import ContentShape, ValidationError, StructuredSection
+from scripts.patterns import UNIT_HEADER_PATTERN
+from scripts.utils import find_sections_by_title_pattern
 
 def validate_course_structure(
     course_code: str, 
-    unit_sections: List[StructuredSection], 
+    structured_sections: List[StructuredSection], 
     shape: ContentShape
 ):
+    unit_sections = find_sections_by_title_pattern(structured_sections, UNIT_HEADER_PATTERN)
     # Rule 1: Project courses MUST NOT have Unit headers
     if shape == ContentShape.PROJECT:
         if len(unit_sections) > 0:

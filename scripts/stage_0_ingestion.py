@@ -17,13 +17,8 @@ import json
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
-from paths import get_path
-
-# Constants
-COURSES_DIRNAME = "courses_md"
-OUTPUTS_DIRNAME = "outputs"
-INDEX_FILENAME = "index.md"
-REPORT_FILENAME = "ingestion_report.json"
+from scripts.paths import get_path
+from scripts.contracts import COURSES_DIRNAME, INDEX_FILENAME, REPORT_FILENAME
 
 @dataclass
 class IngestionError:

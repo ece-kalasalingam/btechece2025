@@ -38,7 +38,19 @@ def generate_assessment_strategy(metadata: CourseMetadata) -> AssessmentStrategy
         )
 
     # 3. Integrated Course (IC) - Table 6, Row 3
-    elif t_code == "IC":
+    elif t_code == "IC-T":
+        # Usually 50/50 for Integrated
+        return AssessmentStrategy(
+            course_type_code="IC",
+            cia_weight=50,
+            ese_weight=50,
+            components=[
+                AssessmentComponent("Theory Sessionals", 20),
+                AssessmentComponent("Lab Assessment", 20),
+                AssessmentComponent("Integrated Project", 10)
+            ]
+        )
+    elif t_code == "IC-P":
         # Usually 50/50 for Integrated
         return AssessmentStrategy(
             course_type_code="IC",

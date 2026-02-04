@@ -7,9 +7,11 @@ import json
 import os
 import logging
 
+from scripts.contracts import OUTPUTS_DIRNAME
+
 def generate_verified_output(
     final_masterdata: dict,
-    output_dir: str = "output"
+    output_dir: str = OUTPUTS_DIRNAME
 ) -> str:
     """
     Serializes the dictionary provided by the previous stages as-is.

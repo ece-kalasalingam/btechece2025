@@ -157,13 +157,6 @@ def _decompose_body_to_blocks(body: str) -> List[MarkdownBlock]:
 # 4. Pattern-Based Utilities (Non-Semantic)
 # ---------------------------------------------------------------------
 
-def find_sections_by_title_pattern(
-    structured_sections: List[StructuredSection],
-    pattern: re.Pattern
-) -> List[StructuredSection]:
-    """Pure structural search by regex pattern."""
-    return [s for s in structured_sections if pattern.search(s.section.title)]
-
 def split_title_paragraph(text: str) -> Dict[str, str]:
     """
     Splits text based on first sentence punctuation.
