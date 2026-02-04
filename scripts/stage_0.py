@@ -1,4 +1,4 @@
-from typing import Dict, List, Tuple
+from typing import Dict
 from scripts.paths import get_path
 from scripts.utils import normalize_line_endings
 

@@ -7,6 +7,14 @@ outputs/
 ingestion_report.json
 DASHBOARD.md
 
+# Local testing scripts
+test_bench.py
+sandbox.py
+
+# Local data folders
+data_test/
+output_test/
+
 # --- Python Standard ---
 __pycache__/
 *.py[cod]

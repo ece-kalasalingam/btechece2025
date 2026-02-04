@@ -1,6 +1,11 @@
 import re
-from typing import Optional, List
+from typing import Optional
 from scripts.patterns import SECTION_TITLE_MAP
+
+# Helper to ensure consistent key generation across all stages
+def get_section_key(title: str) -> str:
+    """Transforms 'COURSE DESCRIPTION' into 'course_description'"""
+    return title.lower().replace(" ", "_")
 
 def normalize_line_endings(text: str) -> str:
     """Stage-0 Utility: Standardizes text for cross-platform parsing."""
@@ -48,3 +53,49 @@ def extract_between(text: str, start_marker: str, end_marker: Optional[str]) -> 
 def strip_markdown_formatting(text: str) -> str:
     """Removes bold/italic symbols for clean data extraction."""
     return text.replace("**", "").replace("__", "").replace("*", "").strip()
+
+def normalize_syllabus_text(text: str, is_title: bool = False) -> str:
+    """
+    Common normalization logic for all syllabus strings.
+    - Preserves words that are already in ALL CAPS (Acronyms).
+    - Applies grammatical Title Case to other words if is_title=True.
+    - Standardizes replacements like Lab -> Laboratory and & -> and.
+    """
+    if not text:
+        return ""
+
+    # Rule 1: Replace '&' with 'and'
+    text = text.replace("&", " and ")
+
+    # Rule 2: Replace 'Lab' with 'Laboratory' (using word boundaries)
+    text = re.sub(r'\bLab\b', 'Laboratory', text, flags=re.IGNORECASE)
+
+    # Rule 3: "Introduction to/of" -> "Fundamentals of"
+    text = re.sub(r'\bIntroduction\s+(to|of)\b', 'Fundamentals of', text, flags=re.IGNORECASE)
+
+    # Rule 4: Clean whitespaces
+    text = " ".join(text.split())
+
+    if is_title:
+        words = text.split() # Don't lower() here yet, we need to check original case
+        minor_words = {'of', 'to', 'and', 'for', 'with', 'in', 'on', 'at', 'the', 'a', 'an'}
+        
+        result = []
+        for i, word in enumerate(words):
+            # RULE: If word is already ALL CAPS and length > 1, preserve it (e.g., VLSI, DSP)
+            if word.isupper() and len(word) > 1:
+                result.append(word)
+                continue
+                
+            word_lower = word.lower()
+            # Capitalize first word or major words
+            if i == 0 or word_lower not in minor_words:
+                result.append(word_lower.capitalize())
+            else:
+                result.append(word_lower)
+        text = " ".join(result)
+    
+    # Rule 5: Final Sanitization for JSON/TeX
+    text = text.replace('"', "''") 
+
+    return text

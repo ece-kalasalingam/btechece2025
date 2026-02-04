@@ -1,25 +1,25 @@
 import re
-
-# Stage 1: Mandatory Sequence
-COURSE_SECTION_SEQUENCE = [
-    "COURSE DESCRIPTION",
-    "COURSE OBJECTIVES",
-    "COURSE OUTCOMES",
-    "ARTICULATION MATRIX",
-    "COURSE TOPICS",
-    "SELF-LEARNING TOPICS",
-    "TEXTBOOK",
-    "REFERENCES",
-    "ASSESSMENT SCHEMES",
-    "RUBRICS"
-]
+from scripts.contracts import COURSE_SECTION_SEQUENCE
 
 # Map verbatim titles to normalized keys
-SECTION_TITLE_MAP = {title: title.lower().replace(" ", "_") for title in COURSE_SECTION_SEQUENCE}
-
-# Stage 2A: Metadata Patterns
-META_PATTERNS = {
-    "category": re.compile(r"^category\s*:\s*([A-Z]+)$", re.I | re.M),
-    "type": re.compile(r"^type\s*:\s*([\w-]+)$", re.I | re.M),
-    "ltpxc": re.compile(r"(\d)\s*-\s*(\d)\s*-\s*(\d)\s*-\s*(\d)\s*-\s*(\d(?:\.\d)?)$", re.M),
+# Extract 'title' from the dictionary before normalizing it
+SECTION_TITLE_MAP = {
+    item["title"]: item["title"].lower().replace(" ", "_") 
+    for item in COURSE_SECTION_SEQUENCE
 }
+
+# Metadata Patterns
+META_PATTERNS = {
+    "category": re.compile(r"^[ \t]*[-*]?\s*Course\s*Category\s*:\s*([A-Z]+)$", re.I | re.M),
+    "type":     re.compile(r"^[ \t]*[-*]?\s*Course\s*Type\s*:\s*([\w-]+)$", re.I | re.M),
+    "ltpxc":    re.compile(r"^[ \t]*[-*]?\s*L-T-P-X-C\s*:\s*(\d)\s*-\s*(\d)\s*-\s*(\d)\s*-\s*(\d)\s*-\s*(\d(?:\.\d)?)$", re.I | re.M),
+}
+COURSE_CODE_HEADER_PATTERN = re.compile(r"^COURSE\s*CODE\s*:\s*([A-Z0-9]+)$", re.I | re.M)
+# Matches "Course Title: Digital Systems"
+COURSE_TITLE_PATTERN = re.compile(r"^COURSE\s*TITLE\s*:\s*(.*)$", re.I | re.M)
+
+# Matches "Prerequisite: CS101" or "Prerequisite: None"
+PREREQ_PATTERN = re.compile(r"^PRE-?REQUISITE\s*:\s*(.*)$", re.I | re.M)
+
+# Matches "Corequisite: EC202" or "Co-requisite: NIL"
+COREQ_PATTERN = re.compile(r"^CO-?REQUISITE\s*:\s*(.*)$", re.I | re.M)

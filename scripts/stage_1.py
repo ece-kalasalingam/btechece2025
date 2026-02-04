@@ -1,76 +1,87 @@
+"""
+=====================================================================
+STAGE-1 : STRUCTURAL GATEKEEPER & TEXT PARTITIONING (KARE R2025)
+=====================================================================
+
+PURPOSE
+-------
+1. Identify the 'Zero Point' (Course Code) and strip preceding junk.
+2. Capture the Course Title from the first line.
+3. Identify R2025 section headers (Level 2 Markdown ##).
+4. Slicing text into Header and Section blocks for Stage-2.
+"""
+
 import re
-from typing import List, Dict, Optional
-from scripts.contracts import DocumentStructure, CourseExecutionContext
-from scripts.patterns import COURSE_SECTION_SEQUENCE, SECTION_TITLE_MAP
+from typing import List, Dict
+from scripts.contracts import DocumentStructure, CourseExecutionContext, COURSE_SECTION_SEQUENCE
+from scripts.patterns import (
+    COURSE_CODE_HEADER_PATTERN,
+    SECTION_TITLE_MAP
+)
 from scripts.utils import get_clean_section_title
 
 def validate_structure(raw_text: str, ctx: CourseExecutionContext):
-    """
-    STAGE-1: Structural Gatekeeper.
-    1. Detects mandatory R2025 section headers.
-    2. Enforces strict verbatim sequence.
-    3. Partitions text into Header, Explicit Sections, and Footer zones.
-    """
     lines = raw_text.splitlines()
     
-    # 1. Identify all Section Header lines and their positions
-    found_headers = []
+    # 1. Find Anchor (Course Code)
+    start_idx = -1
     for i, line in enumerate(lines):
-        canonical_key = get_clean_section_title(line)
-        if canonical_key:
-            found_headers.append({
-                "key": canonical_key,
-                "line_index": i,
-                "raw_title": line.strip()
-            })
-
-    # 2. FATAL CHECK: Exact Sequence Enforcement
-    # We compare the list of found keys against the registry in patterns.py
-    found_keys = [h['key'] for h in found_headers]
+        if COURSE_CODE_HEADER_PATTERN.match(line.strip()):
+            start_idx = i
+            break
     
-    if found_keys != COURSE_SECTION_SEQUENCE:
-        # Check for missing vs out-of-order
-        missing = [s for s in COURSE_SECTION_SEQUENCE if s.lower().replace(" ", "_") not in found_keys]
-        error_msg = f"Sequence mismatch. Found: {len(found_keys)}/10 sections."
-        if missing:
-            error_msg += f" Missing: {missing}"
-        else:
-            error_msg += " Order is incorrect."
-            
-        ctx.log("STAGE-1", "SEC-SEQUENCE-FAIL", error_msg, fatal=True)
+    if start_idx == -1:
+        ctx.log("STAGE-1", "START-NOT-FOUND", "Anchor not found.", fatal=True)
         return
 
-    # 3. Partitioning the Zones
-    # A. Header Zone: Everything before the first mandatory heading
-    first_idx = found_headers[0]['line_index']
-    header_raw = "\n".join(lines[:first_idx]).strip()
+    relevant_lines = lines[start_idx:]
+    
+    # 2. Identify ALL Level-2 Headers as Boundaries
+    # This ensures "Unit 1" stops the "Description" block even if not in sequence
+    found_headers = []
+    for i, line in enumerate(relevant_lines):
+        if line.strip().startswith("##"):
+            # Use a more aggressive cleaner that takes just the first part 
+            # e.g., "## Unit 1: Fundamentals" -> "UNIT 1"
+            raw_title = line.strip().lstrip('#').strip().upper()
+            base_title = raw_title.split(':')[0].strip() # Get "UNIT 1"
+            
+            found_headers.append({
+                "key": base_title.lower().replace(" ", "_"),
+                "line_index": i,
+                "raw_title": raw_title
+            })
 
-    # B. Explicit Sections: Content between headings
+    # 3. Validate the Mandatory Sequence
+    # We check if the keys we NEED exist in the keys we FOUND
+    expected_keys = [SECTION_TITLE_MAP[item["title"]] for item in COURSE_SECTION_SEQUENCE]
+    found_keys = [h['key'] for h in found_headers]
+    
+    for req_key in expected_keys:
+        if req_key not in found_keys:
+            ctx.log("STAGE-1", "MISSING-SECTION", f"Mandatory section '{req_key}' missing.", fatal=True)
+
+    # 4. Partitioning (The Slicer)
+    # This logic now correctly stops at ANY ## header
+    first_header_line = found_headers[0]['line_index']
+    header_raw = f"Course Title: {lines[0].lstrip('#').strip()}\n" + \
+                 "\n".join(relevant_lines[:first_header_line]).strip()
+
     sections_content = {}
     for i in range(len(found_headers)):
-        current_h = found_headers[i]
-        start_line = current_h['line_index'] + 1
+        curr = found_headers[i]
+        start = curr['line_index'] + 1
+        # Stop at the very next ## header found
+        end = found_headers[i+1]['line_index'] if i+1 < len(found_headers) else len(relevant_lines)
         
-        # If there's a next header, that's our boundary
-        if i + 1 < len(found_headers):
-            end_line = found_headers[i+1]['line_index']
-        else:
-            # For the last section (RUBRICS), content goes until 
-            # we hit the Footer marker or end of file
-            end_line = len(lines)
-            
-        content = "\n".join(lines[start_line:end_line]).strip()
-        sections_content[current_h['key']] = content
+        content = "\n".join(relevant_lines[start:end]).strip()
+        sections_content[curr['key']] = content
 
-    # C. Footer Zone: 
-    # Logic: If 'RUBRICS' content contains a footer marker (like "---" or "Author:"),
-    # we would split it here. For now, we assume the footer follows the last section.
-    # (Refine this if you have a specific footer marker in your .md files)
-    footer_raw = "" 
-
-    # 4. Attach to Context
     ctx.structure = DocumentStructure(
         header_block_raw=header_raw,
         explicit_sections=sections_content,
-        footer_block_raw=footer_raw
+        footer_block_raw=""
     )
+    
+    if ctx.is_eligible:
+        print(f"✅ Stage 1: Structure & Partitioning complete for {ctx.course_code}")
