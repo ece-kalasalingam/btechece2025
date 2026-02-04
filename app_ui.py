@@ -5,8 +5,8 @@ import pandas as pd
 
 # Stage Imports from your verified structure
 from run_pipeline import run_full_pipeline
-from scripts.stage_6c_audit_dashboard import generate_dept_dashboard
-from scripts.stage_6a_render_docs import render_syllabus
+from obsolete2.stage_6c_audit_dashboard import generate_dept_dashboard
+from obsolete2.stage_6a_render_docs import render_syllabus
 
 # --- CONFIGURATION ---
 st.set_page_config(page_title="R2025 Syllabus Auditor", layout="wide")

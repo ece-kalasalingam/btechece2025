@@ -1,156 +1,38 @@
-"""
-SHARED DATA CONTRACTS
-Common types and enums used across all pipeline stages.
-"""
-
 from dataclasses import dataclass, field
+from typing import List, Dict, Optional, Any
 from enum import Enum, auto
-from typing import List, Optional, Tuple
 
-# ---------------------------------------------------------------------
-# File System Constants
-# ---------------------------------------------------------------------
-COURSES_DIRNAME = "courses_md"
-OUTPUTS_DIRNAME = "outputs"
-INDEX_FILENAME = "index.md"
-REPORT_FILENAME = "ingestion_report.json"
+class ViolationLevel(Enum):
+    WARNING = auto()
+    FATAL = auto()
 
-# ---------------------------------------------------------------------
-# 1. Base Structure (Stage 1)
-# ---------------------------------------------------------------------
+@dataclass(frozen=True)
+class Violation:
+    stage: str
+    code: str
+    message: str
+    level: ViolationLevel = ViolationLevel.FATAL
 
-class BlockType(Enum):
-    """Structural classification of content chunks."""
-    BULLET = auto()
-    PARAGRAPH = auto()
+@dataclass
+class DocumentStructure:
+    header_block_raw: str
+    explicit_sections: Dict[str, str] # Keyed by canonical section name
+    footer_block_raw: str
 
+@dataclass
+class CourseExecutionContext:
+    course_code: str
+    source_index: int
+    violations: List[Violation] = field(default_factory=list)
+    is_eligible: bool = True  # Flips to False on any FATAL violation
     
-@dataclass(frozen=True)
-class MarkdownBlock:
-    type: BlockType
-    content: str
+    # Storage for artifacts produced by stages
+    structure: Optional[DocumentStructure] = None
+    metadata: Optional[Any] = None 
+    extracted_data: Dict[str, Any] = field(default_factory=dict)
 
-@dataclass(frozen=True)
-class MarkdownSection:
-    """Raw structural output from Stage 1 parsing."""
-    level: int
-    title: str
-    body: str
-
-@dataclass(frozen=True)
-class StructuredSection:
-    section: MarkdownSection
-    blocks: List[MarkdownBlock]
-# ---------------------------------------------------------------------
-# 2. Metadata & Domain Types
-# ---------------------------------------------------------------------
-
-class CourseCategory(Enum):
-    FCM = "FCM"  # Foundation Core
-    PCM = "PCM"  # Programme Core
-    SEM = "SEM"  # Skill Enhancement
-    # Add other categories as per R2025
-
-class CourseType(Enum):
-    TC = "TC"      # Theory Course
-    PC = "PC"      # Practical Course
-    IC_T = "IC-T"  # Integrated Course (Theory weighted)
-    IC_P = "IC-P"  # Integrated Course (Practical weighted)
-    SC = "SC"      # Skill Course
-    PROJ = "PROJ"  # Project
-
-class ContentShape(Enum):
-    """The semantic hinge determined in Stage 2."""
-    ACADEMIC_THEORY = "academic_theory"
-    ACADEMIC_INTEGRATED = "academic_integrated"
-    SKILL_PRACTICE = "skill_practice"
-    PROJECT = "project"
-
-@dataclass(frozen=True)
-class CourseMetadata:
-    """The 'Administrative DNA' of the course."""
-    course_code: str
-    course_title: str
-    category: CourseCategory
-    course_type: CourseType
-    l: int
-    t: int
-    p: int
-    x: int
-    c: float
-    prerequisite: Optional[str] = None
-    corequisite: Optional[str] = None
-
-# ---------------------------------------------------------------------
-# 3. Validation & Reporting
-# ---------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class ValidationError(Exception):
-    """Fatal structural or regulation violation."""
-    course_code: str
-    code: str
-    message: str
-
-@dataclass(frozen=True)
-class ValidationWarning:
-    """Non-fatal guideline deviation."""
-    course_code: str
-    code: str
-    message: str
-
-# ---------------------------------------------------------------------
-# 4. Pipeline Constants
-# ---------------------------------------------------------------------
-
-PREAMBLE_TITLE = "PREAMBLE"
-POLICY_VERSION = "R2025-1.0"
-
-# ---------------------------------------------------------------------
-# 5. Lifted Academic Objects (New additions)
-# ---------------------------------------------------------------------
-
-
-
-@dataclass(frozen=True)
-class CourseComponent:
-    """The final articulated output for a specific mode (TH, PR, or XA)."""
-    type_code: str  # 'TH', 'PR', 'XA'
-    contact_hours: int
-    credits: float
-    content_summary: List[str]
-
-@dataclass(frozen=True)
-class AssessmentComponent:
-    name: str          # e.g., "Sessional Exam 1", "Assignment", "Lab Rubric"
-    weightage: int     # e.g., 20 (for 20%)
-
-@dataclass
-class AssessmentStrategy:
-    course_type_code: str  # TC, PC, IC, SC
-    cia_weight: int        # Total CIA %
-    ese_weight: int        # Total ESE %
-    components: List[AssessmentComponent] = field(default_factory=list)
-
-@dataclass
-class ActivityBlock:
-    title: str
-    description: str
-
-@dataclass
-class UnitBlock:
-    # Step 1: Semantic Content (Stage 2 Driver)
-    number: int
-    title: str
-    topics: List[Tuple[str, str]] = field(default_factory=list) # (Topic, Detail)
-    experiments: List[ActivityBlock] = field(default_factory=list)
-    x_activities: List[ActivityBlock] = field(default_factory=list)
-
-    # Step 2: Author-declared intent (Stage 2 Driver)
-    raw_co_indices: List[int] = field(default_factory=list)
-
-    # Step 3: Enriched / Validated data (Stage 2f & Stage 3)
-    theory_hours: Optional[int] = None
-    lab_hours: Optional[int] = None
-    x_hours: Optional[int] = None
-    mapped_cos: List[str] = field(default_factory=list)
+    def log(self, stage: str, code: str, msg: str, fatal: bool = True):
+        level = ViolationLevel.FATAL if fatal else ViolationLevel.WARNING
+        self.violations.append(Violation(stage, code, msg, level))
+        if fatal:
+            self.is_eligible = False

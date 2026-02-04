@@ -23,7 +23,7 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Dict, List, Tuple
 import json
-from scripts.paths import get_path
+from obsolete2.paths import get_path
 
 COURSES_DIRNAME = "courses_md"
 OUTPUTS_DIRNAME = "outputs"

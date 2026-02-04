@@ -1,0 +1,21 @@
+# --- R2025 Pipeline Specific ---
+# Ignore folders starting with 'obsolete'
+obsolete*/
+
+# Ignore generated outputs/reports
+outputs/
+ingestion_report.json
+DASHBOARD.md
+
+# --- Python Standard ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
