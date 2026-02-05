@@ -1,10 +1,10 @@
 from typing import Dict
 from scripts.paths import get_path
 from scripts.utils import normalize_line_endings
+from scripts.contracts import COURSES_DIR, INDEX_FILE
 
 # Constants for the file system
-COURSES_DIR = "courses_md"
-INDEX_FILE = "index.md"
+
 
 def load_all_courses() -> Dict[str, str]:
     """

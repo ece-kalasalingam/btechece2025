@@ -83,5 +83,5 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
         footer_block_raw=""
     )
     
-    if ctx.is_eligible:
-        print(f"✅ Stage 1: Structure & Partitioning complete for {ctx.course_code}")
+    #if ctx.is_eligible:
+        #print(f"✅ Stage 1: Structure & Partitioning complete for {ctx.course_code}")

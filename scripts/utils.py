@@ -99,3 +99,30 @@ def normalize_syllabus_text(text: str, is_title: bool = False) -> str:
     text = text.replace('"', "''") 
 
     return text
+def escape_latex(text):
+    """
+    Standard LaTeX escaping utility to prevent compilation errors.
+    """
+    if text is None:
+        return ""
+    text = " ".join(text.split())
+    
+    # Map of special LaTeX characters to their escaped versions
+    # Order matters: we escape backslash first so we don't escape our own escapes!
+    map_chars = {
+        '\\': r'\textbackslash{}',
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\textasciicircum{}',
+    }
+    
+    # Regex to find any of these characters
+    regex = re.compile('|'.join(re.escape(str(key)) for key in map_chars.keys()))
+    
+    return regex.sub(lambda mo: map_chars[mo.group()], str(text))

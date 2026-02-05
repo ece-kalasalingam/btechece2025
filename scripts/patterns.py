@@ -19,7 +19,7 @@ COURSE_CODE_HEADER_PATTERN = re.compile(r"^COURSE\s*CODE\s*:\s*([A-Z0-9]+)$", re
 COURSE_TITLE_PATTERN = re.compile(r"^COURSE\s*TITLE\s*:\s*(.*)$", re.I | re.M)
 
 # Matches "Prerequisite: CS101" or "Prerequisite: None"
-PREREQ_PATTERN = re.compile(r"^PRE-?REQUISITE\s*:\s*(.*)$", re.I | re.M)
+PREREQ_PATTERN = re.compile(r"^\s*[-\*]?\s*PRE-?REQUISITE\s*:\s*(.*)$", re.I | re.M)
 
 # Matches "Corequisite: EC202" or "Co-requisite: NIL"
-COREQ_PATTERN = re.compile(r"^CO-?REQUISITE\s*:\s*(.*)$", re.I | re.M)
+COREQ_PATTERN = re.compile(r"^\s*[-\*]?\s*CO-?REQUISITE\s*:\s*(.*)$", re.I | re.M)

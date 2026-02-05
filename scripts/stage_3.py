@@ -5,7 +5,8 @@ from scripts.patterns import (
     META_PATTERNS, 
     PREREQ_PATTERN, 
     COREQ_PATTERN,
-    COURSE_TITLE_PATTERN
+    COURSE_TITLE_PATTERN,
+    COURSE_CODE_HEADER_PATTERN
 )
 
 def _extract_optional_field(key: str, pattern: Any, text: str, ctx: CourseExecutionContext):
@@ -22,6 +23,10 @@ def run_metadata_extraction(ctx: CourseExecutionContext):
     if ctx.metadata is None: ctx.metadata = {}
 
     header_text = ctx.structure.header_block_raw
+
+    # Extract Course Code
+    title_match = COURSE_CODE_HEADER_PATTERN.search(header_text)
+    ctx.course_code = title_match.group(1).strip() if title_match else "UNTITLED"
 
     # Extract Title (Key aligned with Stage 4)
     title_match = COURSE_TITLE_PATTERN.search(header_text)

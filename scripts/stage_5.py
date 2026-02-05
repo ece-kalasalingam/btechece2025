@@ -22,5 +22,5 @@ def run_policy_gate(ctx: CourseExecutionContext):
     # 3. Use the Common Utility for Title Normalization
     meta.course_title = normalize_syllabus_text(meta.course_title, is_title=True)
 
-    if ctx.is_eligible:
-        print(f"✅ Stage 5: Policy & Normalization complete for {ctx.course_code}")
+    #if ctx.is_eligible:
+        #print(f"✅ Stage 5: Policy & Normalization complete for {ctx.course_code}")

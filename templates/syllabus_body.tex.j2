@@ -1,0 +1,39 @@
+[% extends base_template %]
+[% block content %]
+
+[% for course in courses %]
+  [% set pre = course.course_meta.prerequisite | default("") | trim %]
+  [% set co  = course.course_meta.corequisite  | default("") | trim %]
+  [% set req_block = "" %]
+
+  [% if pre != ""  and pre != "None" %]
+    [% set req_block = "\\textbf{Pre-requisite:} " ~ pre %]
+  [% endif %]
+
+  [% if (pre and pre != None) and (co and co != None) %]
+    [% set req_block = req_block ~ "\\par " %]
+  [% endif %]
+
+  [% if co != "" and co != "None" %]
+    [% set req_block = req_block ~ "\\textbf{Co-requisite:} " ~ co %]
+  [% endif %]
+
+  \BeginCourse{[[ course.course_code ]]}
+  
+  \CourseTitle{[[ course.course_code ]]}{[[ course.course_meta.course_title ]]}
+  \CourseMetaTable
+      {[[ course.course_code ]]\quad [[ course.course_meta.course_title ]]}
+      {[[ course.course_meta.l ]]}
+      {[[ course.course_meta.t ]]}
+      {[[ course.course_meta.p ]]}
+      {[[ course.course_meta.x ]]}
+      {[[ course.course_meta.c ]]}
+      {[[ req_block ]]}
+      {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
+
+  \par \noindent \textbf{Course Description}
+  \par \noindent [[ course.description ]]
+  
+  \EndCourse
+[% endfor %]
+[% endblock %]

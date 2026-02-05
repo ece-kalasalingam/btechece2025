@@ -1,6 +1,19 @@
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from enum import Enum, auto
+# File system constants
+COURSES_DIR = "courses_md"
+INDEX_FILE = "index.md"
+OUTPUT_DIR = "output_generated"
+OUTPUT_JSON_FILE = "master_data.json"
+OUTPUT_SYLL_DIR = "syllabus_files"
+TEMPLATES_DIR = "templates"
+MAIN_LATEX_TEMPLATE_FILE = "syllabus_body.tex.j2"
+DESTINATION_DIR = "final_pdfs"
+VIEW_CONFIG = {
+    "a4": "base_a4.tex.j2",
+    "a5": "base_a5.tex.j2"
+}
 
 class CourseCategory(Enum):
     FCM = "FCM"  # Foundation Core
@@ -83,9 +96,19 @@ class CanonicalCourse:
     """The 'Big Object' representing the entire course."""
     course_code: str
     course_meta: CourseMeta  # Grouped metadata
+    description: str
     units: List[Dict] = field(default_factory=list)
     outcomes: List[Dict] = field(default_factory=list)
     # Sections as raw strings for final pass-through
     articulation: Optional[str] = None
     assessment: Optional[str] = None
     rubrics: Optional[str] = None
+@dataclass
+class MasterExportData:
+    """
+    The final structure for Stage 7 export.
+    Groups results into success, warning, and error buckets.
+    """
+    success: List[Dict] = field(default_factory=list)
+    warning: List[Dict] = field(default_factory=list)
+    error: List[Dict] = field(default_factory=list)

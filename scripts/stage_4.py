@@ -19,6 +19,7 @@ def run_course_assembly(ctx: CourseExecutionContext):
     course = CanonicalCourse(
         course_code=ctx.course_code,
         course_meta=meta_obj, 
+        description=ctx.structure.explicit_sections.get("course_description", ""),
         units=ctx.extracted_data.get("units", []),
         outcomes=ctx.extracted_data.get("outcomes", []),
         articulation=ctx.structure.explicit_sections.get("articulation_matrix"),

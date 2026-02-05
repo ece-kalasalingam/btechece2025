@@ -124,5 +124,5 @@ def run_format_gate(ctx: CourseExecutionContext) -> None:
     validate_section_gate(ctx, structure.explicit_sections)
     validate_optional_metadata(ctx, structure.header_block_raw)
 
-    if ctx.is_eligible:
-        print(f"✅ Stage 2: Format & Policy Gate passed for {ctx.course_code}")
+    #if ctx.is_eligible:
+        #print(f"✅ Stage 2: Format & Policy Gate passed for {ctx.course_code}")

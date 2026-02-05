@@ -30,5 +30,5 @@ def process_body_logic(ctx: CourseExecutionContext):
             # Softly ignore sections not defined in contracts.py (headless sections)
             continue
 
-    if ctx.is_eligible:
-        print(f"✅ Stage 6: Body Grammar validated for {ctx.course_code}")
+    #if ctx.is_eligible:
+        #print(f"✅ Stage 6: Body Grammar validated for {ctx.course_code}")
