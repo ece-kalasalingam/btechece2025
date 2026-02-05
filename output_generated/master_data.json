@@ -27,12 +27,12 @@
                     "bos_date": "Jan./2026",
                     "revision": "1.0",
                     "course_level": 1,
-                    "document_version": "13\\_20260205",
+                    "document_version": "14\\_20260206",
                     "document_date": "2026-02-05"
                 }
             },
             "warnings": [
-                "Assigned version: 13_20260205"
+                "Assigned version: 14_20260206"
             ]
         },
         {
@@ -61,12 +61,12 @@
                     "bos_date": "Jan./2026",
                     "revision": "1.0",
                     "course_level": 1,
-                    "document_version": "1\\_20260205",
+                    "document_version": "2\\_20260206",
                     "document_date": "2026-02-05"
                 }
             },
             "warnings": [
-                "Assigned version: 1_20260205"
+                "Assigned version: 2_20260206"
             ]
         }
     ],

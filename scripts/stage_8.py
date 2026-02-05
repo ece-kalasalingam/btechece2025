@@ -23,10 +23,14 @@ def run_book_generation(view_type="a4"):
 
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-
+    
+    success_courses = data.get("success", []) # Returns a list
+    warning_entries = data.get("warning", []) # Returns a list
+    warning_courses = [entry["course_data"] for entry in warning_entries if "course_data" in entry]
+    all_courses = success_courses + warning_courses
     template = env.get_template(MAIN_LATEX_TEMPLATE_FILE)
     rendered_book = template.render(
-        courses=data.get("success", []),
+        courses=all_courses,
         base_template=VIEW_CONFIG[view_type]
     )
 

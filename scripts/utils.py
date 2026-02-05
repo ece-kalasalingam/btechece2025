@@ -179,7 +179,6 @@ def get_git_metadata(file_path: Path):
 
     except Exception:
         # Fallback for local environments without Git or fresh files
-        doc_version = "1"
-        doc_date = datetime.now().strftime("%Y-%m-%d")
+        return "0", datetime.now().strftime("%Y-%m-%d")
 
     return doc_version, doc_date
