@@ -3,8 +3,12 @@ from scripts.paths import get_path
 from scripts.utils import normalize_line_endings
 from scripts.contracts import COURSES_DIR, INDEX_FILE
 
-# Constants for the file system
-
+def ingest(raw_text: str) -> str:
+    """
+    Pure text preparation. 
+    Standardizes line endings for cross-platform (Windows/Linux/GitHub) compatibility.
+    """
+    return normalize_line_endings(raw_text)
 
 def load_all_courses() -> Dict[str, str]:
     """
@@ -45,10 +49,3 @@ def load_all_courses() -> Dict[str, str]:
             print(f"⚠️ Warning: File {code}.md listed in index but not found in folder.")
 
     return raw_data
-
-def ingest(raw_text: str) -> str:
-    """
-    Pure text preparation. 
-    Standardizes line endings for cross-platform (Windows/Linux/GitHub) compatibility.
-    """
-    return normalize_line_endings(raw_text)

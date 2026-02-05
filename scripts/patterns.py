@@ -4,7 +4,7 @@ from scripts.contracts import COURSE_SECTION_SEQUENCE
 # Map verbatim titles to normalized keys
 # Extract 'title' from the dictionary before normalizing it
 SECTION_TITLE_MAP = {
-    item["title"]: item["title"].lower().replace(" ", "_") 
+    item["title"].upper(): item["title"].lower().replace(" ", "_") 
     for item in COURSE_SECTION_SEQUENCE
 }
 
@@ -23,3 +23,18 @@ PREREQ_PATTERN = re.compile(r"^\s*[-\*]?\s*PRE-?REQUISITE\s*:\s*(.*)$", re.I | r
 
 # Matches "Corequisite: EC202" or "Co-requisite: NIL"
 COREQ_PATTERN = re.compile(r"^\s*[-\*]?\s*CO-?REQUISITE\s*:\s*(.*)$", re.I | re.M)
+
+# Regex for Footer Governance (Structured Metadata at the bottom)
+FOOTER_PATTERNS = {
+    # Supports "- Course Author: ..."
+    "course_author": re.compile(r"^[ \t]*[-*]?\s*Course\s*Author\s*:\s*(.*)$", re.I | re.M),
+    
+    # Flexible month name + / + 2 or 4 digit year
+    "bos_date":      re.compile(r"^[ \t]*[-*]?\s*BoS\s*Approval\s*:\s*([a-zA-Z]+\.?/\d{2,4})$", re.I | re.M),
+    
+    # Matches "- Revision: 1.0"
+    "course_revision":       re.compile(r"^[ \t]*[-*]?\s*Revision\s*:\s*([\d\.]+)$", re.I | re.M),
+    
+    # Matches "- Course Level: 1"
+    "course_level":  re.compile(r"^[ \t]*[-*]?\s*Course\s*Level\s*:\s*(\d+)$", re.I | re.M),
+}

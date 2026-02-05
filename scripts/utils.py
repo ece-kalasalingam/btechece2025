@@ -1,6 +1,9 @@
 import re
-from typing import Optional
+from typing import Optional, Any, TypeVar
 from scripts.patterns import SECTION_TITLE_MAP
+from datetime import datetime
+from pathlib import Path
+import subprocess
 
 # Helper to ensure consistent key generation across all stages
 def get_section_key(title: str) -> str:
@@ -99,30 +102,84 @@ def normalize_syllabus_text(text: str, is_title: bool = False) -> str:
     text = text.replace('"', "''") 
 
     return text
-def escape_latex(text):
+
+def escape_latex(text: str) -> str:
     """
-    Standard LaTeX escaping utility to prevent compilation errors.
+    Optimized Single-Pass LaTeX Escaper.
+    Prevents double-escaping and ordering bugs.
     """
-    if text is None:
+    if not text:
         return ""
+        
+    # Standardize whitespace
     text = " ".join(text.split())
-    
-    # Map of special LaTeX characters to their escaped versions
-    # Order matters: we escape backslash first so we don't escape our own escapes!
+
+    # Map of special characters
     map_chars = {
         '\\': r'\textbackslash{}',
-        '&': r'\&',
-        '%': r'\%',
-        '$': r'\$',
-        '#': r'\#',
-        '_': r'\_',
-        '{': r'\{',
-        '}': r'\}',
-        '~': r'\textasciitilde{}',
-        '^': r'\textasciicircum{}',
+        '&':  r'\&',
+        '%':  r'\%',
+        '$':  r'\$',
+        '#':  r'\#',
+        '_':  r'\_',
+        '{':  r'\{',
+        '}':  r'\}',
+        '~':  r'\textasciitilde{}',
+        '^':  r'\textasciicircum{}',
     }
-    
-    # Regex to find any of these characters
-    regex = re.compile('|'.join(re.escape(str(key)) for key in map_chars.keys()))
-    
-    return regex.sub(lambda mo: map_chars[mo.group()], str(text))
+
+    # Create a regex pattern that matches any of the keys in map_chars
+    # re.escape(key) is used to handle characters like '^' or '$' in the regex itself
+    pattern = re.compile('|'.join(re.escape(key) for key in map_chars.keys()))
+
+    # The lambda function looks up the match in the map
+    return pattern.sub(lambda match: map_chars[match.group()], text)
+
+T = TypeVar('T', bound=Any)
+def recursive_escape_latex(data: T) -> T:
+    """
+    Recursively walks through data and escapes strings for LaTeX.
+    The TypeVar T ensures that if a dict goes in, the linter expects a dict out.
+    """
+    if isinstance(data, dict):
+        return {k: recursive_escape_latex(v) for k, v in data.items()} # type: ignore
+    elif isinstance(data, list):
+        return [recursive_escape_latex(i) for i in data] # type: ignore
+    elif isinstance(data, str):
+        return escape_latex(data) # type: ignore
+    return data
+def get_automated_version(file_path: Path) -> str:
+    # Minimal resource versioning: CommitCount_YYYYMMDD
+    try:
+        cmd = ["git", "rev-list", "--count", "HEAD", "--", str(file_path)]
+        count = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
+        v_num = count if count != "0" else "1"
+    except:
+        v_num = "1"
+    return f"{v_num}_{datetime.now().strftime('%Y%m%d')}"
+def get_git_metadata(file_path: Path):
+    """
+    Returns machine-readable Git metadata:
+    (commit_count, last_commit_date_iso)
+    """
+    try:
+        # 1. Document Version: Total commit count for this specific file
+        count_cmd = ["git", "rev-list", "--count", "HEAD", "--", str(file_path)]
+        count = subprocess.check_output(count_cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
+        doc_version = count if count and count != "0" else "1"
+
+        # 2. Document Date: Date of the very last commit in ISO format (YYYY-MM-DD)
+        # %as provides the author date, short format (YYYY-MM-DD)
+        date_cmd = ["git", "log", "-1", "--format=%as", "--", str(file_path)]
+        doc_date = subprocess.check_output(date_cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
+        
+        # If the file is new and not yet committed, doc_date will be empty
+        if not doc_date:
+            doc_date = datetime.now().strftime("%Y-%m-%d")
+
+    except Exception:
+        # Fallback for local environments without Git or fresh files
+        doc_version = "1"
+        doc_date = datetime.now().strftime("%Y-%m-%d")
+
+    return doc_version, doc_date

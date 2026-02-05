@@ -1,15 +1,15 @@
 from pathlib import Path
 from functools import lru_cache
 
-PROJECT_MARKER = ".project-root"
-
 @lru_cache(maxsize=1)
 def get_project_root() -> Path:
-    start = Path(__file__).resolve().parent
-    for parent in [start] + list(start.parents):
-        if (parent / PROJECT_MARKER).is_file():
-            return parent
-    raise FileNotFoundError(f"Project root marker '{PROJECT_MARKER}' not found.")
+    """
+    Optimized for GitHub Actions: 
+    Calculates root relative to this file's location.
+    Works without any external .project-root file.
+    """
+    # __file__ is scripts/paths.py, .parent is scripts/, .parent.parent is root
+    return Path(__file__).resolve().parent.parent
 
 def get_path(name: str, create: bool = False) -> Path:
     root = get_project_root()

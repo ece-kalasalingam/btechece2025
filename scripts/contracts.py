@@ -10,6 +10,17 @@ OUTPUT_SYLL_DIR = "syllabus_files"
 TEMPLATES_DIR = "templates"
 MAIN_LATEX_TEMPLATE_FILE = "syllabus_body.tex.j2"
 DESTINATION_DIR = "final_pdfs"
+CHECKPOINTS_DIR = "checkpoints"
+
+MONTH_MAP = {
+        "jan": "Jan.", "january": "Jan.", "feb": "Feb.", "february": "Feb.",
+        "mar": "Mar.", "march": "Mar.", "apr": "Apr.", "april": "Apr.",
+        "may": "May.", "jun": "Jun.", "june": "Jun.", "jul": "Jul.", "july": "Jul.",
+        "aug": "Aug.", "august": "Aug.", "sep": "Sep.", "sept": "Sep.", "september": "Sep.",
+        "oct": "Oct.", "october": "Oct.", "nov": "Nov.", "november": "Nov.", "dec": "Dec.", "december": "Dec."
+    }
+
+# PDF View Configurations
 VIEW_CONFIG = {
     "a4": "base_a4.tex.j2",
     "a5": "base_a5.tex.j2"
@@ -92,6 +103,15 @@ class CourseMeta:
     corequisite: Optional[str] = None
 
 @dataclass
+class CourseFooter:
+    course_author: str = "Department Curriculum Committee"
+    bos_date: str = "N/A"
+    revision: str = "1.0"
+    course_level: int = 1
+    document_version: str = "1.0"
+    document_date: str = "N/A"
+
+@dataclass
 class CanonicalCourse:
     """The 'Big Object' representing the entire course."""
     course_code: str
@@ -103,6 +123,8 @@ class CanonicalCourse:
     articulation: Optional[str] = None
     assessment: Optional[str] = None
     rubrics: Optional[str] = None
+    footer: CourseFooter = field(default_factory=CourseFooter)
+
 @dataclass
 class MasterExportData:
     """

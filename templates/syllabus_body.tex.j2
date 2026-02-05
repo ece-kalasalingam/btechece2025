@@ -1,39 +1,57 @@
 [% extends base_template %]
 [% block content %]
+  [% for course in courses %]
+    [% set pre = course.course_meta.prerequisite | default("") | trim %]
+    [% set co  = course.course_meta.corequisite  | default("") | trim %]
+    [% set req_block = "" %]
 
-[% for course in courses %]
-  [% set pre = course.course_meta.prerequisite | default("") | trim %]
-  [% set co  = course.course_meta.corequisite  | default("") | trim %]
-  [% set req_block = "" %]
+    [% if pre != ""  and pre != "None" %]
+      [% set req_block = "\\textbf{Pre-requisite:} " ~ pre %]
+    [% endif %]
 
-  [% if pre != ""  and pre != "None" %]
-    [% set req_block = "\\textbf{Pre-requisite:} " ~ pre %]
-  [% endif %]
+    [% if (pre and pre != None) and (co and co != None) %]
+      [% set req_block = req_block ~ "\\par " %]
+    [% endif %]
 
-  [% if (pre and pre != None) and (co and co != None) %]
-    [% set req_block = req_block ~ "\\par " %]
-  [% endif %]
+    [% if co != "" and co != "None" %]
+      [% set req_block = req_block ~ "\\textbf{Co-requisite:} " ~ co %]
+    [% endif %]
 
-  [% if co != "" and co != "None" %]
-    [% set req_block = req_block ~ "\\textbf{Co-requisite:} " ~ co %]
-  [% endif %]
+    \BeginCourse{[[ course.course_code ]]}
+    
+      \CourseTitle{[[ course.course_code ]]}{[[ course.course_meta.course_title ]]}
+      \CourseMetaTable
+          {[[ course.course_code ]]\quad [[ course.course_meta.course_title ]]}
+          {[[ course.course_meta.l ]]}
+          {[[ course.course_meta.t ]]}
+          {[[ course.course_meta.p ]]}
+          {[[ course.course_meta.x ]]}
+          {[[ course.course_meta.c ]]}
+          {[[ req_block ]]}
+          {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
 
-  \BeginCourse{[[ course.course_code ]]}
-  
-  \CourseTitle{[[ course.course_code ]]}{[[ course.course_meta.course_title ]]}
-  \CourseMetaTable
-      {[[ course.course_code ]]\quad [[ course.course_meta.course_title ]]}
-      {[[ course.course_meta.l ]]}
-      {[[ course.course_meta.t ]]}
-      {[[ course.course_meta.p ]]}
-      {[[ course.course_meta.x ]]}
-      {[[ course.course_meta.c ]]}
-      {[[ req_block ]]}
-      {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
-
-  \par \noindent \textbf{Course Description}
-  \par \noindent [[ course.description ]]
-  
-  \EndCourse
-[% endfor %]
+      \par \noindent \textbf{Course Description}
+      \par \noindent [[ course.description ]]
+      \vfill
+      \begin{flushleft} % Forces alignment to the left edge
+      \noindent % Prevents indentation of the table
+      \begin{minipage}{\textwidth}
+        \footnotesize
+        % \renewcommand{\arraystretch}{1.4} % Better row spacing
+        \begin{tabular}{|p{0.35\textwidth}|p{0.55\textwidth}|}
+        \hline
+        \rowcolor[gray]{0.9} \multicolumn{2}{|c|}{\textbf{Governance Detail}} \\
+        \hline
+        Course Author & {[[ course.footer.course_author ]]} \\
+        \hline
+        BoS Approval  & {[[ course.footer.bos_date ]]} \\
+        \hline
+        Version       & {[[ course.footer.version ]]} \\
+        \hline
+        Course Level  & {[[ course.footer.course_level ]]} \\
+        \hline
+        \end{tabular}
+      \end{minipage}
+    \EndCourse
+  [% endfor %]
 [% endblock %]

@@ -1,0 +1,29 @@
+{
+    "course_code": "ECE001",
+    "course_meta": {
+        "course_title": "Fundamentals of Semiconductor Physics for VLSI Laboratory",
+        "course_category": "PCM",
+        "course_type": "IC-T",
+        "l": 3,
+        "t": 0,
+        "p": 2,
+        "x": 3,
+        "c": 5.0,
+        "prerequisite": null,
+        "corequisite": null
+    },
+    "description": "A sample description on a course about semiconductors. A sample description on a course about semiconductors.",
+    "units": [],
+    "outcomes": [],
+    "articulation": null,
+    "assessment": null,
+    "rubrics": null,
+    "footer": {
+        "course_author": "Department Curriculum Committee",
+        "bos_date": "Jan./2026",
+        "revision": "1.0",
+        "course_level": 1,
+        "document_version": "1\\_20260205",
+        "document_date": "2026-02-05"
+    }
+}

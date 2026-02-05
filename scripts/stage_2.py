@@ -11,6 +11,7 @@ from scripts.patterns import (
     META_PATTERNS,
     PREREQ_PATTERN,
     COREQ_PATTERN,
+    FOOTER_PATTERNS,
 )
 
 # ------------------------------------------------------------------
@@ -89,8 +90,37 @@ def validate_optional_metadata(ctx: CourseExecutionContext, header_text: str) ->
                     msg=f"Found '{label}' label, but the value format is invalid.",
                     fatal=False,
                 )
+# ------------------------------------------------------------------
+# STAGE-2D : FOOTER METADATA FORMAT
+# ------------------------------------------------------------------
 
+def validate_footer_gate(ctx: CourseExecutionContext, footer_text: str) -> None:
+    """
+    Checks if the footer block exists and contains valid governance data.
+    """
+    if not footer_text or len(footer_text.strip()) < 10:
+        ctx.log("STAGE-2", "FOOTER-MISSING", 
+                "The Governance Footer (separated by '---') is missing.", fatal=True)
+        return
 
+    bos_pattern = FOOTER_PATTERNS.get("bos_date")
+    if bos_pattern and not bos_pattern.search(footer_text):
+        ctx.log("STAGE-2", "INVALID-BOS-DATE", 
+                "BoS Approval Date format is unrecognized. Use 'Month/Year' (e.g., Mar/25 or January/2026)", 
+                fatal=True)
+        
+    # Check for Course Level (must be a number)
+    level_pattern = FOOTER_PATTERNS.get("course_level")
+    if level_pattern and not level_pattern.search(footer_text):
+        ctx.log("STAGE-2", "INVALID-LEVEL", 
+                "Course Level is missing or not a valid number.", fatal=True)
+        
+    # Check for Course Revision (must be a number, can have decimals)
+    revision_pattern = FOOTER_PATTERNS.get("course_revision")
+    print(f"DEBUG: Footer Text:\n{footer_text}\n")   
+    if revision_pattern and not revision_pattern.search(footer_text):
+        ctx.log("STAGE-2", "INVALID-REVISION", 
+                "Course Revision is missing or not in the standard format X.X.", fatal=True)
 # ------------------------------------------------------------------
 # STAGE-2 ORCHESTRATOR
 # ------------------------------------------------------------------
@@ -122,6 +152,7 @@ def run_format_gate(ctx: CourseExecutionContext) -> None:
     # needing to check if ctx.structure is None again.
     validate_header_format(ctx, structure.header_block_raw)
     validate_section_gate(ctx, structure.explicit_sections)
+    validate_footer_gate(ctx, structure.footer_block_raw)
     validate_optional_metadata(ctx, structure.header_block_raw)
 
     #if ctx.is_eligible:

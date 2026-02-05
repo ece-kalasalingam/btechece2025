@@ -1,5 +1,6 @@
 # scripts/stage_4.py
-from scripts.contracts import CourseExecutionContext, CanonicalCourse, CourseMeta
+from scripts.contracts import CourseExecutionContext, CanonicalCourse, CourseMeta, CourseFooter
+from scripts.utils import recursive_escape_latex
 
 def run_course_assembly(ctx: CourseExecutionContext):
     if not ctx.is_eligible or ctx.metadata is None or ctx.structure is None:
@@ -15,7 +16,16 @@ def run_course_assembly(ctx: CourseExecutionContext):
         prerequisite=ctx.metadata.get("prerequisite"),
         corequisite=ctx.metadata.get("corequisite")
     )
+    footer_data = ctx.metadata.get("footer_governance", {})
 
+    footer_obj = CourseFooter(
+        course_author=footer_data.get("course_author", "Department Curriculum Committee"),
+        bos_date=footer_data.get("bos_date", "N/A"),
+        revision=footer_data.get("version", "1.0"), # User provided 'Version' in MD
+        document_version=footer_data.get("document_version", "1"),
+        document_date=footer_data.get("document_date", "N/A"),     # Git date
+        course_level=footer_data.get("course_level", 1)
+    )
     course = CanonicalCourse(
         course_code=ctx.course_code,
         course_meta=meta_obj, 
@@ -25,6 +35,7 @@ def run_course_assembly(ctx: CourseExecutionContext):
         articulation=ctx.structure.explicit_sections.get("articulation_matrix"),
         # Key updated to match SECTION_TITLE_MAP in patterns.py
         assessment=ctx.structure.explicit_sections.get("assessment_schemes"),
-        rubrics=ctx.structure.explicit_sections.get("rubrics")
+        rubrics=ctx.structure.explicit_sections.get("rubrics"),
+        footer=footer_obj
     )
-    ctx.course = course
+    ctx.course = recursive_escape_latex(course)

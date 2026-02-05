@@ -3,6 +3,15 @@ import subprocess
 import shutil
 from scripts.contracts import VIEW_CONFIG, OUTPUT_DIR, OUTPUT_SYLL_DIR, DESTINATION_DIR
 
+def check_latex_env():
+    """
+    PRE-FLIGHT CHECK:
+    Verifies if xelatex is installed before any processing begins.
+    """
+    if shutil.which("xelatex") is None:
+        return False
+    return True
+
 def compile_latex(view_type="a4"):
     """
     STAGE-9: PDF Compilation.
@@ -18,7 +27,9 @@ def compile_latex(view_type="a4"):
         return
     tex_path_for_latex = tex_path.replace("\\", "/")
     # print(f"🚀 Stage 9: Compiling {view_type}...")
-
+    if not check_latex_env():
+        print("❌ Stage 9 Error: 'xelatex' not found. Compilation aborted to prevent corrupt builds.")
+        return
     # We run the command via subprocess
     # -interaction=nonstopmode: Don't stop for user input on errors
     # -output-directory: Keep the output files organized

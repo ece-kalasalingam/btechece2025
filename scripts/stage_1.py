@@ -11,14 +11,11 @@ PURPOSE
 4. Slicing text into Header and Section blocks for Stage-2.
 """
 
-import re
-from typing import List, Dict
 from scripts.contracts import DocumentStructure, CourseExecutionContext, COURSE_SECTION_SEQUENCE
 from scripts.patterns import (
     COURSE_CODE_HEADER_PATTERN,
     SECTION_TITLE_MAP
 )
-from scripts.utils import get_clean_section_title
 
 def validate_structure(raw_text: str, ctx: CourseExecutionContext):
     lines = raw_text.splitlines()
@@ -66,6 +63,14 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
     first_header_line = found_headers[0]['line_index']
     header_raw = f"Course Title: {lines[0].lstrip('#').strip()}\n" + \
                  "\n".join(relevant_lines[:first_header_line]).strip()
+    
+    if ctx.metadata is None: ctx.metadata = {}
+    for i in range(len(relevant_lines) - 1, 0, -1):
+        if relevant_lines[i].strip() == "---":
+            ctx.metadata["footer_block_raw"] = "\n".join(relevant_lines[i+1:]).strip()
+            relevant_lines = relevant_lines[:i] # Remove footer from body
+            break
+    footer_raw = ctx.metadata.get("footer_block_raw", "")
 
     sections_content = {}
     for i in range(len(found_headers)):
@@ -80,7 +85,7 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
     ctx.structure = DocumentStructure(
         header_block_raw=header_raw,
         explicit_sections=sections_content,
-        footer_block_raw=""
+        footer_block_raw=footer_raw
     )
     
     #if ctx.is_eligible:

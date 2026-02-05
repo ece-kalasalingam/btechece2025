@@ -3,22 +3,28 @@ import json
 import os
 import dataclasses
 from typing import List, TypeVar, Any
-from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, OUTPUT_JSON_FILE, ViolationLevel, MasterExportData
-from scripts.utils import escape_latex
+from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, OUTPUT_JSON_FILE, ViolationLevel, MasterExportData, CHECKPOINTS_DIR
+from scripts.utils import recursive_escape_latex
 
-T = TypeVar('T', bound=Any)
-def recursive_escape_latex(data: T) -> T:
+def save_course_checkpoint(ctx: CourseExecutionContext):
     """
-    Recursively walks through data and escapes strings for LaTeX.
-    The TypeVar T ensures that if a dict goes in, the linter expects a dict out.
+    Saves a single course result immediately to disk.
+    This prevents data loss if a later course causes a crash.
     """
-    if isinstance(data, dict):
-        return {k: recursive_escape_latex(v) for k, v in data.items()} # type: ignore
-    elif isinstance(data, list):
-        return [recursive_escape_latex(i) for i in data] # type: ignore
-    elif isinstance(data, str):
-        return escape_latex(data) # type: ignore
-    return data
+    checkpoint_dir = os.path.join(OUTPUT_DIR, CHECKPOINTS_DIR)
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    
+    # We only save if there's a course object (Stage 4+ reached)
+    if not ctx.course:
+        return
+
+    # Prepare data (LaTeX escaped for safety)
+    course_dict = dataclasses.asdict(ctx.course)
+    escaped_data = recursive_escape_latex(course_dict)
+    
+    file_path = os.path.join(checkpoint_dir, f"{ctx.course_code}.json")
+    with open(file_path, "w", encoding="utf-8") as f:
+        json.dump(escaped_data, f, indent=4)
 
 def export_master_data(report: List[CourseExecutionContext], output_path: str = "master_data.json"):
     """
@@ -42,21 +48,21 @@ def export_master_data(report: List[CourseExecutionContext], output_path: str = 
                 "reason": fatal_v.message if fatal_v else "Unknown Fatal Error"
             })
 
-        # 2. WARNING: Eligible but has warnings
-        elif ctx.is_eligible and any(v.level == ViolationLevel.WARNING for v in ctx.violations):
-            warnings = [v.message for v in ctx.violations if v.level == ViolationLevel.WARNING]
-            course_dict = dataclasses.asdict(ctx.course) if ctx.course else {"course_code": ctx.course_code}
-            escaped_course = recursive_escape_latex(course_dict)
-            master_data.warning.append({
-                "course_data": escaped_course,
-                "warnings": warnings
-            })
-
-        # 3. SUCCESS: Perfectly clean
-        elif ctx.course:
-            course_dict = dataclasses.asdict(ctx.course)
-            escaped_course = recursive_escape_latex(course_dict)
-            master_data.success.append(escaped_course)
+        # 2. Load the Checkpointed Data
+        checkpoint_path = os.path.join(OUTPUT_DIR, "checkpoints", f"{ctx.course_code}.json")
+        if os.path.exists(checkpoint_path):
+            with open(checkpoint_path, "r", encoding="utf-8") as f:
+                escaped_course = json.load(f)
+            
+            # Categorize into Success or Warning
+            if any(v.level == ViolationLevel.WARNING for v in ctx.violations):
+                warnings = [v.message for v in ctx.violations if v.level == ViolationLevel.WARNING]
+                master_data.warning.append({
+                    "course_data": escaped_course,
+                    "warnings": warnings
+                })
+            else:
+                master_data.success.append(escaped_course)
 
     # Write to file
     file_path = os.path.join(OUTPUT_DIR, OUTPUT_JSON_FILE)

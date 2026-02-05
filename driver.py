@@ -92,6 +92,8 @@ def run_pipeline():
             # Validates grammar in sections as per contracts.py
             if ctx.is_eligible:
                 stage_6.process_body_logic(ctx)
+            if ctx.is_eligible:
+                stage_7.save_course_checkpoint(ctx)
         except Exception as e:
             # CAPTURE SYSTEM CRASHES
             # We log the actual Python error message and a snippet of the traceback

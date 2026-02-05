@@ -1,48 +1,74 @@
 {
-    "success": [
+    "success": [],
+    "warning": [
         {
-            "course_code": "ECE000",
-            "course_meta": {
-                "course_title": "Semiconductor Physics",
-                "course_category": "PCM",
-                "course_type": "IC-T",
-                "l": 3,
-                "t": 0,
-                "p": 2,
-                "x": 3,
-                "c": 5.0,
-                "prerequisite": "ECE203 Sample course as pre-requistie",
-                "corequisite": "ECE202 Sample corse as co-requistie"
+            "course_data": {
+                "course_code": "ECE000",
+                "course_meta": {
+                    "course_title": "Semiconductor Physics",
+                    "course_category": "PCM",
+                    "course_type": "IC-T",
+                    "l": 3,
+                    "t": 0,
+                    "p": 2,
+                    "x": 3,
+                    "c": 5.0,
+                    "prerequisite": "ECE203 Sample course as pre-requistie",
+                    "corequisite": "ECE202 Sample corse as co-requistie"
+                },
+                "description": "A sample description on a course about semiconductors. A sample description on a course about semiconductors.",
+                "units": [],
+                "outcomes": [],
+                "articulation": "- CO1: PO1=3, PO5=2, PSO1=2, SO2=3 - CO2: PO1=3, PO11=2, PSO1=2, SO5=3 - CO3: PO1=3, PO5=2, PSO3=1, SO1=3",
+                "assessment": null,
+                "rubrics": null,
+                "footer": {
+                    "course_author": "Department Curriculum Committee",
+                    "bos_date": "Jan./2026",
+                    "revision": "1.0",
+                    "course_level": 1,
+                    "document_version": "13\\_20260205",
+                    "document_date": "2026-02-05"
+                }
             },
-            "description": "A sample description on a course about semiconductors. A sample description on a course about semiconductors.",
-            "units": [],
-            "outcomes": [],
-            "articulation": "- CO1: PO1=3, PO5=2, PSO1=2, SO2=3 - CO2: PO1=3, PO11=2, PSO1=2, SO5=3 - CO3: PO1=3, PO5=2, PSO3=1, SO1=3",
-            "assessment": null,
-            "rubrics": null
+            "warnings": [
+                "Assigned version: 13_20260205"
+            ]
         },
         {
-            "course_code": "ECE001",
-            "course_meta": {
-                "course_title": "Fundamentals of Semiconductor Physics for VLSI Laboratory",
-                "course_category": "PCM",
-                "course_type": "IC-T",
-                "l": 3,
-                "t": 0,
-                "p": 2,
-                "x": 3,
-                "c": 5.0,
-                "prerequisite": null,
-                "corequisite": null
+            "course_data": {
+                "course_code": "ECE001",
+                "course_meta": {
+                    "course_title": "Fundamentals of Semiconductor Physics for VLSI Laboratory",
+                    "course_category": "PCM",
+                    "course_type": "IC-T",
+                    "l": 3,
+                    "t": 0,
+                    "p": 2,
+                    "x": 3,
+                    "c": 5.0,
+                    "prerequisite": null,
+                    "corequisite": null
+                },
+                "description": "A sample description on a course about semiconductors. A sample description on a course about semiconductors.",
+                "units": [],
+                "outcomes": [],
+                "articulation": null,
+                "assessment": null,
+                "rubrics": null,
+                "footer": {
+                    "course_author": "Department Curriculum Committee",
+                    "bos_date": "Jan./2026",
+                    "revision": "1.0",
+                    "course_level": 1,
+                    "document_version": "1\\_20260205",
+                    "document_date": "2026-02-05"
+                }
             },
-            "description": "A sample description on a course about semiconductors. A sample description on a course about semiconductors.",
-            "units": [],
-            "outcomes": [],
-            "articulation": null,
-            "assessment": null,
-            "rubrics": null
+            "warnings": [
+                "Assigned version: 1_20260205"
+            ]
         }
     ],
-    "warning": [],
     "error": []
 }
