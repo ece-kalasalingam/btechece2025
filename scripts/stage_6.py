@@ -46,5 +46,14 @@ def run_policy_gate(ctx: CourseExecutionContext):
     # 3. Use the Common Utility for Title Normalization
     meta.course_title = normalize_syllabus_text(meta.course_title, is_title=True)
 
+    # 4. Course Level range (0–6) is a policy guideline, not a hard constraint.
+    if not (0 <= meta.course_level <= 6):
+        ctx.log(
+            "STAGE-6",
+            "COURSE-LEVEL-POLICY-VIOLATION",
+            f"Course Level {meta.course_level} is outside the recommended range (0–6).",
+            fatal=False
+        )
+
     #if ctx.is_eligible:
         #print(f"✅ Stage 6: Policy & Normalization complete for {ctx.course_code}")

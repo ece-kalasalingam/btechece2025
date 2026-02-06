@@ -27,15 +27,20 @@ COREQ_PATTERN = re.compile(r"^\s*[-\*]?\s*CO-?REQUISITE\s*:\s*(.*)$", re.I | re.
 
 # Regex for Footer Governance (Structured Metadata at the bottom)
 FOOTER_PATTERNS = {
-    # Supports "- Course Author: ..."
-    "course_author": re.compile(r"^[ \t]*[-*]?\s*Course\s*Author\s*:\s*(.*)$", re.I | re.M),
-    
-    # Flexible month name + / + 2 or 4 digit year
-    "bos_date":      re.compile(r"^[ \t]*[-*]?\s*BoS\s*Approval\s*:\s*([a-zA-Z]+\.?/\d{2,4})$", re.I | re.M),
-    
-    # Matches "- Course Revision: 1.0"
-    "course_revision":       re.compile(r"^[ \t]*[-*]?\s*Course\s*Revision\s*:\s*([\d\.]+)$", re.I | re.M),
-    
-    # Matches "- Course Level: 1"
-    "course_level":  re.compile(r"^[ \t]*[-*]?\s*Course\s*Level\s*:\s*(\d+)$", re.I | re.M),
+    "course_author": re.compile(
+        r"^[ \t]*[-*]?\s*Course\s*Author\s*:\s*([^\n\r]*)$",
+        re.I | re.M
+    ),
+    "bos_date": re.compile(
+        r"^[ \t]*[-*]?\s*BoS\s*Approval\s*:\s*([^\n\r]+)$",
+        re.I | re.M
+    ),
+    "course_revision": re.compile(
+        r"^[ \t]*[-*]?\s*Course\s*Revision\s*:\s*([^\n\r]+)$",
+        re.I | re.M
+    ),
+    "course_level": re.compile(
+        r"^[ \t]*[-*]?\s*Course\s*Level\s*:\s*(\d+)$",
+        re.I | re.M
+    ),
 }

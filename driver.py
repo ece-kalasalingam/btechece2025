@@ -1,6 +1,6 @@
 import traceback
 import argparse
-from scripts.contracts import CourseExecutionContext, VIEW_CONFIG
+from scripts.contracts import CourseExecutionContext, VIEW_CONFIG, ViolationLevel
 import scripts.stage_0 as stage_0
 import scripts.stage_1 as stage_1
 import scripts.stage_2 as stage_2
@@ -65,7 +65,7 @@ def run_pipeline():
             
             # 3. STAGE 1: Structural Validation & Partitioning
             # Requires two arguments: (raw_text, ctx)
-            stage_1.validate_structure(raw_text, ctx)
+            stage_1. run_structure_parse(raw_text, ctx)
             
             # 4. STAGE 2: Format Gate (Mandatory Header check & Section check)
             # Function name in your file is run_format_gate, not run_validation_gate
@@ -119,16 +119,30 @@ def run_pipeline():
                 fatal=True
             )
         # Final Logging
+        # Final Logging
+        warnings = [v for v in ctx.violations if v.level == ViolationLevel.WARNING]
+        fatals   = [v for v in ctx.violations if v.level == ViolationLevel.FATAL]
+
         if ctx.is_eligible and ctx.course:
-            # course_title is now inside the course_meta object
             final_title = ctx.course.course_meta.course_title
-            print(f"✅ {code}: Processed successfully. Title: {final_title}")
+
+            if warnings:
+                print(f"⚠️ {ctx.course_code}: Processed with warnings. Title: {final_title}")
+                for w in warnings:
+                    print(f"   └─ [WARNING] {w.stage} :: {w.code} :: {w.message}")
+            else:
+                print(f"✅ {ctx.course_code}: Processed successfully. Title: {final_title}")
+
         else:
-            # Report the first fatal violation that caused the failure
-            error = ctx.violations[-1].message if ctx.violations else "Unknown error"
-            code = ctx.violations[-1].code if ctx.violations else "Unknown error"
-            stage = ctx.violations[-1].stage if ctx.violations else "Stage Unknown"
-            print(f"❌ {ctx.course_code}: {code} - Failed at {stage} - {error}")
+            # Report the FIRST fatal violation (root cause)
+            fatal = fatals[0] if fatals else None
+
+            if fatal:
+                print(
+                    f"❌ {ctx.course_code}: {fatal.code} - Failed at {fatal.stage} - {fatal.message}"
+                )
+            else:
+                print(f"❌ {ctx.course_code}: Failed due to unknown error.")
             
         master_report.append(ctx)
     stage_7.export_master_data(master_report)

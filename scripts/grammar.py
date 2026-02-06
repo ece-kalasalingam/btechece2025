@@ -15,7 +15,7 @@ def _validate_description_grammar(content: str, ctx: CourseExecutionContext):
     words = text.split()
     if len(words) < 15:
         ctx.log(
-            stage="STAGE-6",
+            stage="STAGE-4",
             code="DESC-TOO-SHORT",
             msg="Course Description is too brief. It must be at least 15 words.",
             fatal=True
@@ -25,7 +25,7 @@ def _validate_description_grammar(content: str, ctx: CourseExecutionContext):
     # Check if the text starts with common markdown/text bullet symbols
     if re.match(r"^[\s]*[-*•\d\.]", text):
         ctx.log(
-            stage="STAGE-6",
+            stage="STAGE-4",
             code="DESC-NOT-PROSE",
             msg="Course Description must be written in prose paragraphs, not as a list.",
             fatal=False # Warnings for formatting issues

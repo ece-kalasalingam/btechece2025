@@ -32,6 +32,11 @@ def run_footer_extraction(ctx: CourseExecutionContext):
         match = pattern.search(footer_raw)
         if match:
             val = match.group(1).strip()
+            if not val:
+                return
+            if val.startswith("-"):
+                ctx.log("STAGE-3", "FOOTER-INVALID", f"Footer field '{key}' has an invalid value starting with '-'.", fatal=True)
+                return  # Stop processing footer if any field is invalid
             if val:
                 # Handle numeric Course Level
                 if key == "course_level":
@@ -42,7 +47,6 @@ def run_footer_extraction(ctx: CourseExecutionContext):
                 else:
                     ctx.metadata[key] = val
 
-    print(f"Extracted footer metadata for {ctx.course_code}: {ctx.metadata}")
     validate_course_code(ctx.course_code)
     file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
     git_ver, git_date, git_hash = get_git_metadata(file_path)
