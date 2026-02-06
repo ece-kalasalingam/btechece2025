@@ -21,9 +21,10 @@ def run_course_assembly(ctx: CourseExecutionContext):
     footer_obj = CourseFooter(
         course_author=footer_data.get("course_author", "Department Curriculum Committee"),
         bos_date=footer_data.get("bos_date", "N/A"),
-        revision=footer_data.get("version", "1.0"), # User provided 'Version' in MD
-        document_version=footer_data.get("document_version", "1"),
+        course_revision=footer_data.get("course_revision", "1.0"), # User provided 'Version' in MD
+        document_version=footer_data.get("document_version", "1"), # Git commit count
         document_date=footer_data.get("document_date", "N/A"),     # Git date
+        document_git_hash=footer_data.get("document_git_hash", "N/A"), # Git Hash
         course_level=footer_data.get("course_level", 1)
     )
     course = CanonicalCourse(

@@ -32,27 +32,14 @@
 
       \par \noindent \textbf{Course Description}
       \par \noindent [[ course.description ]]
-      \vfill
-        \begin{flushleft} % Forces alignment to the left edge
-          \noindent % Prevents indentation of the table
-          \begin{minipage}{\textwidth}
-            \footnotesize
-            \renewcommand{\arraystretch}{1.4} % Better row spacing
-            \begin{tabular}{|p{0.35\textwidth}|p{0.55\textwidth}|}
-              \hline
-              \rowcolor[gray]{0.9} \multicolumn{2}{|c|}{\textbf{Governance Detail}} \\
-              \hline
-              Course Author & {[[ course.footer.course_author ]]} \\
-              \hline
-              BoS Approval  & {[[ course.footer.bos_date ]]} \\
-              \hline
-              Version       & {[[ course.footer.document_version ]]} \\
-              \hline
-              Course Level  & {[[ course.footer.course_level ]]} \\
-              \hline
-            \end{tabular}
-          \end{minipage}
-        \end{flushleft}
+      \AdminMetaTable
+        {[[ course.footer.course_level ]]}
+        {[[ course.footer.course_revision ]]}
+        {[[ course.footer.course_author ]]}
+        {[[ course.footer.bos_date ]]}
+        {[[ course.footer.document_version ]]}
+        {[[ course.footer.document_date ]]}
+        {[[ course.footer.document_git_hash ]]}
     \EndCourse
   [% endfor %]
 [% endblock %]

@@ -148,15 +148,6 @@ def recursive_escape_latex(data: T) -> T:
     elif isinstance(data, str):
         return escape_latex(data) # type: ignore
     return data
-def get_automated_version(file_path: Path) -> str:
-    # Minimal resource versioning: CommitCount_YYYYMMDD
-    try:
-        cmd = ["git", "rev-list", "--count", "HEAD", "--", str(file_path)]
-        count = subprocess.check_output(cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
-        v_num = count if count != "0" else "1"
-    except:
-        v_num = "1"
-    return f"{v_num}_{datetime.now().strftime('%Y%m%d')}"
 def get_git_metadata(file_path: Path):
     """
     Returns machine-readable Git metadata:
@@ -166,19 +157,29 @@ def get_git_metadata(file_path: Path):
         # 1. Document Version: Total commit count for this specific file
         count_cmd = ["git", "rev-list", "--count", "HEAD", "--", str(file_path)]
         count = subprocess.check_output(count_cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
-        doc_version = count if count and count != "0" else "1"
-
-        # 2. Document Date: Date of the very last commit in ISO format (YYYY-MM-DD)
-        # %as provides the author date, short format (YYYY-MM-DD)
-        date_cmd = ["git", "log", "-1", "--format=%as", "--", str(file_path)]
-        doc_date = subprocess.check_output(date_cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
+        doc_version = count if count and count != "0" else "N/A"
         
-        # If the file is new and not yet committed, doc_date will be empty
+        # 2. Git Hash: Hash Signature  of the very last commit and date of the commit in ISO format (YYYY-MM-DD)
+        hash_cmd = ["git", "log", "-1", "--format=%h %as", "--", file_path]
+        commit_out = subprocess.check_output(hash_cmd, stderr=subprocess.DEVNULL, encoding="utf-8").strip()
+        if commit_out:
+            doc_git_hash, doc_date = commit_out.split(" ", 1)
+        else:
+            doc_git_hash, doc_date = "N/A", "N/A"
+        # If the file is new and not yet committed, commit details will be empty
         if not doc_date:
-            doc_date = datetime.now().strftime("%Y-%m-%d")
+            doc_date = "N/A"
+        if not doc_git_hash:
+            doc_git_hash = "N/A"
 
     except Exception:
         # Fallback for local environments without Git or fresh files
-        return "0", datetime.now().strftime("%Y-%m-%d")
+        return "N/A", "N/A", "N/A"
 
-    return doc_version, doc_date
+    return doc_version, doc_date, doc_git_hash
+def get_git_hash(file_path):
+    # Returns the unique 7-character identifier for the current version
+    return subprocess.check_output(
+        ['git', 'rev-parse', '--short', 'HEAD'], 
+        encoding='utf-8'
+    ).strip()

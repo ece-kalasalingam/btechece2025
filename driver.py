@@ -97,11 +97,12 @@ def run_pipeline():
         except Exception as e:
             # CAPTURE SYSTEM CRASHES
             # We log the actual Python error message and a snippet of the traceback
-            error_trace = traceback.format_exc().splitlines()[-1] 
+            print("❌ UNHANDLED EXCEPTION")
+            traceback.print_exc()
             ctx.log(
                 stage="SYSTEM",
                 code="UNHANDLED-EXCEPTION",
-                msg=f"A critical code error occurred: {str(e)} | {error_trace}",
+                msg=f"Internal Engine Error: Please check system logs for details.",
                 fatal=True
             )
         # Final Logging
@@ -114,7 +115,7 @@ def run_pipeline():
             error = ctx.violations[-1].message if ctx.violations else "Unknown error"
             code = ctx.violations[-1].code if ctx.violations else "Unknown error"
             stage = ctx.violations[-1].stage if ctx.violations else "Stage Unknown"
-            print(f"❌ {code}: Failed at {stage} - {code} - {error}")
+            print(f"❌ {code}: Failed at {stage} - {error}")
             
         master_report.append(ctx)
     stage_7.export_master_data(master_report)
@@ -122,9 +123,7 @@ def run_pipeline():
         # print(f"🛠️ Processing PDF View: {v}")
         # Stage 8 will now use VIEW_CONFIG[v] internally
         stage_8.run_book_generation(view_type=v)
-        stage_9.compile_latex(view_type=v)
-        stage_9.cleanup_artifacts(view_type=v)
-        stage_9.finalize_output(view_type=v)
+        stage_9.run_stage9(view_type=v)
     
     print(f"\n--- Pipeline Complete. Processed {len(master_report)} courses. ---")
 

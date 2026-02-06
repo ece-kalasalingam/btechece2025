@@ -117,7 +117,6 @@ def validate_footer_gate(ctx: CourseExecutionContext, footer_text: str) -> None:
         
     # Check for Course Revision (must be a number, can have decimals)
     revision_pattern = FOOTER_PATTERNS.get("course_revision")
-    print(f"DEBUG: Footer Text:\n{footer_text}\n")   
     if revision_pattern and not revision_pattern.search(footer_text):
         ctx.log("STAGE-2", "INVALID-REVISION", 
                 "Course Revision is missing or not in the standard format X.X.", fatal=True)

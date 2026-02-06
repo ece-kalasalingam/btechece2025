@@ -6,6 +6,7 @@ obsolete*/
 outputs/
 ingestion_report.json
 DASHBOARD.md
+output_generated/
 
 # Local testing scripts
 test_bench.py

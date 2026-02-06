@@ -1,9 +1,9 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.1.18)  6 FEB 2026 04:14
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.1.18)  6 FEB 2026 06:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
-**output_generated/syllabus_files/a4/syllabus_a4.tex
-(./output_generated/syllabus_files/a4/syllabus_a4.tex
+**syllabus_a4.tex
+(./syllabus_a4.tex
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
 (c:/texlive/2025/texmf-dist/tex/latex/base/book.cls
@@ -279,8 +279,9 @@ Package: array 2024/10/17 v2.6g Tabular extension package (FMi)
 \everycr=\toks23
 \minrowclearance=\skip56
 \rownum=\count298
-) (./templates/header.tex (c:/texlive/2025/texmf-dist/tex/latex/graphics/graphi
-cx.sty
+)
+(d:/JP/Git Repositories/btechece2025/templates/latex/header.tex
+(c:/texlive/2025/texmf-dist/tex/latex/graphics/graphicx.sty
 Package: graphicx 2021/09/16 v1.2d Enhanced LaTeX Graphics (DPC,SPQR)
 
 (c:/texlive/2025/texmf-dist/tex/latex/graphics/graphics.sty
@@ -333,7 +334,7 @@ Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
 \multirow@dima=\skip72
 \bigstrutjot=\dimen171
 ))
-(output_generated\syllabus_files\a4/syllabus_a4.aux)
+(./syllabus_a4.aux)
 \openout1 = `syllabus_a4.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 9.
@@ -450,8 +451,7 @@ LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
 (Font)                  OT1/cmtt/m/n --> TU/lmtt/b/n on input line 9.
 Package hyperref Info: Link coloring OFF on input line 9.
-(output_generated\syllabus_files\a4/syllabus_a4.out)
-(output_generated\syllabus_files\a4/syllabus_a4.out)
+(./syllabus_a4.out) (./syllabus_a4.out)
 \@outlinefile=\write3
 \openout3 = `syllabus_a4.out'.
 
@@ -468,32 +468,37 @@ LaTeX Font Info:    External font `cmex10' loaded for size
 
 ]
 
-File: assets/kare-logo.png Graphic file (type bmp)
-<assets/kare-logo.png>
+File: kare-logo.png Graphic file (type bmp)
+<kare-logo.png>
 [2
 
 ]
 
-File: assets/kare-logo.png Graphic file (type bmp)
-<assets/kare-logo.png>
+File: kare-logo.png Graphic file (type bmp)
+<kare-logo.png>
 [3
 
-] (output_generated\syllabus_files\a4/syllabus_a4.aux)
+]
+
+File: kare-logo.png Graphic file (type bmp)
+<kare-logo.png>
+[4
+
+] (./syllabus_a4.aux)
  ***********
 LaTeX2e <2024-11-01> patch level 2
 L3 programming layer <2025-01-18>
  ***********
 Package rerunfilecheck Info: File `syllabus_a4.out' has not changed.
-(rerunfilecheck)             Checksum: CC7D51CAC916F8EDCF8B2DF5509F8D5A;158.
+(rerunfilecheck)             Checksum: 79346A3E6B95C15198EF2FDF7E946F0F;231.
  ) 
 Here is how much of TeX's memory you used:
- 12405 strings out of 473832
- 242498 string characters out of 5733158
- 695801 words of memory out of 5000000
- 35331 multiletter control sequences out of 15000+600000
+ 12404 strings out of 473832
+ 242085 string characters out of 5733158
+ 698188 words of memory out of 5000000
+ 35332 multiletter control sequences out of 15000+600000
  562029 words of font info for 58 fonts, out of 8000000 for 9000
  1348 hyphenation exceptions out of 8191
- 79i,22n,93p,298b,535s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 79i,22n,93p,631b,533s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on output_generated\syllabus_files\a4/syllabus_a4.pdf (3 pages).
-
+Output written on syllabus_a4.pdf (4 pages).

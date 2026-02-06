@@ -12,7 +12,7 @@
     \centering
     \begin{tabular}{@{}m{23mm}@{\hspace{2mm}}m{\dimexpr\textwidth-27mm\relax}@{}}
       % Logo (left)
-      \includegraphics[width=23mm]{assets/kare-logo.png}
+      \includegraphics[width=23mm]{kare-logo.png}
       &
       % Text (right, vertically centered)
       \centering
@@ -75,4 +75,30 @@
   \end{tabularx}
   \par \medskip
 }
+% ----------------------------------------
+% Administrative Meta Table
+% ----------------------------------------
+\newcommand{\AdminMetaTable}[7]{%
+  \vfill  
+  \begin{flushleft} % Forces alignment to the left edge
+    \nointerlineskip
+    \noindent
+    \begin{minipage}{\textwidth}
+      \footnotesize
+      \renewcommand{\arraystretch}{1.5}
+      \begin{tabularx}{\textwidth}{|X|X|}
+        \hline
+        \rowcolor[gray]{0.9} \multicolumn{2}{|c|}{\textbf{Administrtive Detail(s)}} \\ \hline
+        Course Level  & #1 \\ \hline
+        Course Revision & #2 \\ \hline
+        Course Author & #3 \\ \hline
+        BoS Approval  & #4 \\ \hline
+        Document Version & #5 \\ \hline
+        Document Date  & #6 \\ \hline
+        Document Git Hash  & #7 \\ \hline
+      \end{tabularx}
+    \end{minipage}
+  \end{flushleft}
+}
+
 \overfullrule=20pt

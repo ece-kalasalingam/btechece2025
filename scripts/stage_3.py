@@ -3,7 +3,7 @@ import re
 from typing import Any
 from datetime import datetime
 from scripts.paths import get_path
-from scripts.utils import get_automated_version, get_git_metadata
+from scripts.utils import get_git_metadata
 from scripts.contracts import CourseExecutionContext, COURSES_DIR, MONTH_MAP
 from scripts.patterns import (
     META_PATTERNS, 
@@ -22,18 +22,31 @@ def _extract_optional_field(key: str, pattern: Any, text: str, ctx: CourseExecut
         if val.upper() not in ["NONE", "NIL", "N.A", "NA", ""]:
             ctx.metadata[key] = val
 
-def normalize_bos_date(raw_text: str) -> str:
-    current_year = str(datetime.now().year)
-    # Year logic: prefix '20' if 2 digits
-    four_digit = re.search(r"\b(\d{4})\b", raw_text)
-    two_digit = re.search(r"\b(\d{2})\b", raw_text)
-    year = four_digit.group(1) if four_digit else (f"20{two_digit.group(1)}" if two_digit else current_year)
+# FIND: normalize_bos_date(raw_text: str)
+# REPLACE WITH:
+def normalize_bos_date(date_str: str) -> str:
+    """Targeted normalization for the date component only."""
+    if not date_str or date_str.upper() in ["N/A", "NONE"]:
+        return "N/A"
     
-    # Month logic
-    month_part = "".join(re.findall(r"[a-zA-Z]", raw_text)).lower()
-    month_map = MONTH_MAP
-    standard_month = month_map.get(month_part, month_part.capitalize()[:3] + "." if len(month_part) >=3 else "Jan.")
-    return f"{standard_month}/{year}"
+    # Split "Jan/25" or "January/2025"
+    parts = date_str.split('/')
+    if len(parts) != 2:
+        return date_str # Fallback if format is weird
+    
+    month_part = parts[0].strip().lower().replace(".", "")
+    year_part = parts[1].strip()
+    
+    # Use MONTH_MAP from contracts.py
+    normalized_month = MONTH_MAP.get(month_part, month_part.capitalize())
+    
+    # Normalize Year (2-digit to 4-digit)
+    if len(year_part) == 2:
+        normalized_year = f"20{year_part}"
+    else:
+        normalized_year = year_part
+        
+    return f"{normalized_month} {normalized_year}"
 
 def run_footer_extraction(ctx: CourseExecutionContext):
     if ctx.metadata is None: ctx.metadata = {}
@@ -63,15 +76,11 @@ def run_footer_extraction(ctx: CourseExecutionContext):
         footer_dict["course_author"] = "Department Curriculum Committee"
 
     file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
-    git_ver, git_date = get_git_metadata(file_path)
+    git_ver, git_date, git_hash = get_git_metadata(file_path)
     
     footer_dict["document_version"] = git_ver
     footer_dict["document_date"] = git_date
-
-    # RULE: Automatic Versioning (Git Count + Timestamp)
-    file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
-    footer_dict["document_version"] = get_automated_version(file_path)
-    ctx.log("STAGE-3", "AUTO-VER", f"Assigned version: {footer_dict['document_version']}", fatal=False)
+    footer_dict["document_git_hash"] = git_hash
 
     # Store for Stage 4 assembly
     ctx.metadata["footer_governance"] = footer_dict

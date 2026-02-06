@@ -10,10 +10,12 @@ def get_project_root() -> Path:
     """
     # __file__ is scripts/paths.py, .parent is scripts/, .parent.parent is root
     return Path(__file__).resolve().parent.parent
+PROJECT_ROOT = get_project_root()
+def get_path(*parts, ensure_within_root=True):
+    path = PROJECT_ROOT.joinpath(*parts).resolve()
 
-def get_path(name: str, create: bool = False) -> Path:
-    root = get_project_root()
-    path = root / name
-    if create:
-        path.mkdir(parents=True, exist_ok=True)
+    if ensure_within_root:
+        if not str(path).startswith(str(PROJECT_ROOT.resolve())):
+            raise ValueError(f"Path escapes project root: {path}")
+
     return path

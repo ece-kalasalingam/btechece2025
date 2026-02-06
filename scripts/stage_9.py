@@ -1,95 +1,167 @@
+# scripts/stage_9.py
+
 import os
 import subprocess
-import shutil
-from scripts.contracts import VIEW_CONFIG, OUTPUT_DIR, OUTPUT_SYLL_DIR, DESTINATION_DIR
+from pathlib import Path
+from scripts.contracts import (
+    VIEW_CONFIG,
+    OUTPUT_DIR,
+    OUTPUT_SYLL_DIR,
+    DESTINATION_DIR,
+)
 
-def check_latex_env():
-    """
-    PRE-FLIGHT CHECK:
-    Verifies if xelatex is installed before any processing begins.
-    """
-    if shutil.which("xelatex") is None:
+
+# --------------------------------------------------
+# PRE-FLIGHT CHECK
+# --------------------------------------------------
+
+def check_latex_env() -> bool:
+    try:
+        subprocess.run(
+            ["xelatex", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True
+        )
+        return True
+    except Exception:
         return False
-    return True
 
-def compile_latex(view_type="a4"):
-    """
-    STAGE-9: PDF Compilation.
-    Compiles the .tex files generated in Stage 8 into PDFs.
-    """
+
+# --------------------------------------------------
+# STAGE 9A — COMPILE LaTeX (MODEL B)
+# --------------------------------------------------
+
+def compile_latex(view_type: str = "a4") -> bool:
     if view_type not in VIEW_CONFIG:
         raise ValueError(f"Unknown view type: {view_type}")
-    input_sylltex_dir = os.path.join(OUTPUT_DIR, OUTPUT_SYLL_DIR, view_type)
-    tex_file = f"syllabus_{view_type}.tex"
-    tex_path = os.path.join(input_sylltex_dir, tex_file)
-    if not os.path.exists(tex_path):
-        print(f"❌ Stage 9 Error: {tex_path} not found.")
-        return
-    tex_path_for_latex = tex_path.replace("\\", "/")
-    # print(f"🚀 Stage 9: Compiling {view_type}...")
+
+    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
+    tex_file = base_dir / f"syllabus_{view_type}.tex"
+
+    if not tex_file.exists():
+        print(f"❌ Stage 9: Missing .tex file: {tex_file}")
+        return False
+
     if not check_latex_env():
-        print("❌ Stage 9 Error: 'xelatex' not found. Compilation aborted to prevent corrupt builds.")
-        return
-    # We run the command via subprocess
-    # -interaction=nonstopmode: Don't stop for user input on errors
-    # -output-directory: Keep the output files organized
-    command = [
-        "xelatex", 
+        print("❌ Stage 9: XeLaTeX not available.")
+        return False
+
+    # --------------------------------------------------
+    # MODEL B: Tell XeLaTeX where templates & assets live
+    # --------------------------------------------------
+    env = os.environ.copy()
+    env["TEXINPUTS"] = (
+        str(Path("templates").resolve()) + os.pathsep +
+        str(Path("assets").resolve()) + os.pathsep +
+        env.get("TEXINPUTS", "")
+    )
+
+    cmd = [
+        "xelatex",
         "-interaction=nonstopmode",
         "-halt-on-error",
-        f"-output-directory={input_sylltex_dir}",
-        tex_path_for_latex
+        tex_file.name
     ]
-    result = subprocess.run(command, capture_output=True, text=True)
-    
-    if result.returncode != 0:
-        print(f"⚠️ LaTeX Error Log Snippet:\n{result.stdout[-500:]}") 
-        # This prints the end of the log so you can see the error in the console
-    
+
     try:
-        # Run LaTeX twice to ensure Table of Contents and Hyperlinks are correct
-        for i in range(2):
+        # --------------------------------------------------
+        # 🔁 TWO PASSES — REQUIRED FOR BOOKMARKS
+        # --------------------------------------------------
+        for run in range(2):
             result = subprocess.run(
-                command, 
-                stdout=subprocess.PIPE, 
-                stderr=subprocess.PIPE, 
+                cmd,
+                cwd=str(base_dir),
+                env=env,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
                 text=True
             )
-            
-        if result.returncode != 0:
-            print(f"⚠️ Stage 9: LaTeX Warning/Error in {view_type}. Check logs.")
-            # Optional: print(result.stdout[-500:]) # Print last 500 chars of log
-            
-    except FileNotFoundError:
-        print("❌ Stage 9 Error: 'xelatex' not found. Is LaTeX installed on this system?")
-def finalize_output(view_type="a4"):
-    if view_type not in VIEW_CONFIG:
-        raise ValueError(f"Unknown view type: {view_type}")
-    input_sylltex_dir = os.path.join(OUTPUT_DIR, OUTPUT_SYLL_DIR, view_type)
-    pdf_file = f"syllabus_{view_type}.pdf"
-    pdf_path = os.path.join(input_sylltex_dir, pdf_file)
 
-    if not os.path.exists(pdf_path):
-        print(f"❌ Stage 9 Error: {pdf_path} not found.")
-        return
-    
-    try:
-        os.makedirs(DESTINATION_DIR, exist_ok=True)
+            if result.returncode != 0:
+                print(f"❌ Stage 9: LaTeX failed on pass {run + 1}")
+                log = (result.stdout + "\n" + result.stderr).splitlines()[-25:]
+                print("\n".join(log))
+                return False
+
+        return True
+
     except Exception as e:
-        print(f"❌ Stage 9: Failed to create directory {DESTINATION_DIR}. Error: {e}")
-        return
-    
-    # shutil.move is safer than os.rename across different drives/filesystems
-    shutil.move(pdf_path, os.path.join(DESTINATION_DIR, f"KARE_Syllabus_{view_type}.pdf"))
-    #print(f"🚚 Moved final PDF to {DESTINATION_DIR}")
+        print(f"❌ Stage 9: XeLaTeX execution error: {e}")
+        return False
 
-def cleanup_artifacts(view_type="a4"):
-    """Removes auxiliary files (.log, .aux, .toc) to keep the folder clean."""
-    input_dir = os.path.join("output_generated", "books")
-    extensions = [".aux", ".log", ".toc", ".out"]
+# --------------------------------------------------
+# STAGE 9B — FINALIZE OUTPUT
+# --------------------------------------------------
+
+def finalize_output(view_type: str = "a4") -> bool:
+    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
+    pdf_path = base_dir / f"syllabus_{view_type}.pdf"
+
+    if not pdf_path.exists():
+        print(f"❌ Stage 9: PDF not found: {pdf_path}")
+        return False
+
+    if pdf_path.stat().st_size == 0:
+        print("❌ Stage 9: Generated PDF is empty.")
+        return False
+
+    dest_dir = Path(DESTINATION_DIR)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    final_name = f"KARE_Syllabus_{view_type}.pdf"
+    pdf_path.replace(dest_dir / final_name)
+
+    return True
+# --------------------------------------------------
+# STAGE 9C — CLEAN THE FOLDERS
+# 
+def cleanup_artifacts(view_type: str = "a4") -> None:
+    """
+    Removes LaTeX auxiliary files generated during Stage 9.
+    Keeps the .log file for debugging/audit purposes.
+    """
+
+    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
+
+    # Explicit whitelist of extensions to remove
+    cleanup_exts = {
+        ".aux",
+        ".out",
+        ".toc",
+        ".lof",
+        ".lot",
+        ".nav",
+        ".snm",
+        ".fls",
+        ".fdb_latexmk",
+        ".synctex.gz",
+        ".tex"
+    }
+
+    for item in base_dir.iterdir():
+        if not item.is_file():
+            continue
+
+        # Handle .synctex.gz separately
+        if item.name.endswith(".synctex.gz"):
+            item.unlink(missing_ok=True)
+            continue
+
+        if item.suffix in cleanup_exts:
+            item.unlink(missing_ok=True)
+
+
+# --------------------------------------------------
+# STAGE 9 ORCHESTRATOR (ONLY ENTRY POINT)
+# --------------------------------------------------
+
+def run_stage9(view_type: str = "a4") -> bool:
+    if not compile_latex(view_type):
+        return False
+
+    if not finalize_output(view_type):
+        return False
     
-    for ext in extensions:
-        file_to_remove = os.path.join(input_dir, f"syllabus_{view_type}{ext}")
-        if os.path.exists(file_to_remove):
-            os.remove(file_to_remove)
-    #print(f"🧹 Stage 9: Cleaned up auxiliary files for {view_type}.")
+    cleanup_artifacts(view_type)
+    return True

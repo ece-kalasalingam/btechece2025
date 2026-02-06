@@ -32,8 +32,8 @@ FOOTER_PATTERNS = {
     # Flexible month name + / + 2 or 4 digit year
     "bos_date":      re.compile(r"^[ \t]*[-*]?\s*BoS\s*Approval\s*:\s*([a-zA-Z]+\.?/\d{2,4})$", re.I | re.M),
     
-    # Matches "- Revision: 1.0"
-    "course_revision":       re.compile(r"^[ \t]*[-*]?\s*Revision\s*:\s*([\d\.]+)$", re.I | re.M),
+    # Matches "- Course Revision: 1.0"
+    "course_revision":       re.compile(r"^[ \t]*[-*]?\s*Course\s*Revision\s*:\s*([\d\.]+)$", re.I | re.M),
     
     # Matches "- Course Level: 1"
     "course_level":  re.compile(r"^[ \t]*[-*]?\s*Course\s*Level\s*:\s*(\d+)$", re.I | re.M),

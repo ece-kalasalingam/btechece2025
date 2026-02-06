@@ -21,9 +21,10 @@
     "footer": {
         "course_author": "Department Curriculum Committee",
         "bos_date": "Jan./2026",
-        "revision": "1.0",
+        "course_revision": "1.0",
         "course_level": 1,
-        "document_version": "2\\_20260206",
-        "document_date": "2026-02-05"
+        "document_version": "2",
+        "document_date": "2026-02-05",
+        "document_git_hash": "fb0a380"
     }
 }

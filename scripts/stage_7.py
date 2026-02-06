@@ -47,6 +47,7 @@ def export_master_data(report: List[CourseExecutionContext], output_path: str = 
                 "course_code": ctx.course_code,
                 "reason": fatal_v.message if fatal_v else "Unknown Fatal Error"
             })
+            continue
 
         # 2. Load the Checkpointed Data
         checkpoint_path = os.path.join(OUTPUT_DIR, "checkpoints", f"{ctx.course_code}.json")

@@ -106,10 +106,11 @@ class CourseMeta:
 class CourseFooter:
     course_author: str = "Department Curriculum Committee"
     bos_date: str = "N/A"
-    revision: str = "1.0"
+    course_revision: str = "1.0"
     course_level: int = 1
     document_version: str = "1.0"
     document_date: str = "N/A"
+    document_git_hash: str = "N/A"
 
 @dataclass
 class CanonicalCourse:
