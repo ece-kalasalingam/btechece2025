@@ -35,7 +35,10 @@ def check_latex_env() -> bool:
 def compile_latex(view_type: str = "a4") -> bool:
     if view_type not in VIEW_CONFIG:
         raise ValueError(f"Unknown view type: {view_type}")
-
+    #raise RuntimeError(
+        #"Stage 9 (PDF compilation) is disabled in Python. "
+        #"XeLaTeX must be run ONLY via GitHub Actions."
+    #)
     base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
     tex_file = base_dir / f"syllabus_{view_type}.tex"
 

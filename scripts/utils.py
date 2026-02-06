@@ -1,9 +1,14 @@
 import re
 from typing import Optional, Any, TypeVar
 from scripts.patterns import SECTION_TITLE_MAP
-from datetime import datetime
+
 from pathlib import Path
 import subprocess
+COURSE_CODE_PATTERN = re.compile(r"^[A-Z0-9_]+$")
+
+FORBIDDEN_SUBSTRINGS = {
+    "/", "\\", "..", ".", ":", "~"
+}
 
 # Helper to ensure consistent key generation across all stages
 def get_section_key(title: str) -> str:
@@ -183,3 +188,16 @@ def get_git_hash(file_path):
         ['git', 'rev-parse', '--short', 'HEAD'], 
         encoding='utf-8'
     ).strip()
+def validate_course_code(code: str) -> None:
+    """
+    Validates course code for security and structural correctness.
+    Raises ValueError if invalid.
+    """
+    if not code:
+        raise ValueError("Empty course code")
+
+    if any(bad in code for bad in FORBIDDEN_SUBSTRINGS):
+        raise ValueError(f"Illegal characters in course code: {code}")
+
+    if not COURSE_CODE_PATTERN.fullmatch(code):
+        raise ValueError(f"Invalid course code format: {code}")

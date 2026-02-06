@@ -1,34 +1,50 @@
-from scripts.contracts import CourseExecutionContext, CanonicalCourse
-from scripts.grammar import check_section_grammar
+from scripts.contracts import MONTH_MAP, CourseExecutionContext
+from scripts.utils import normalize_syllabus_text
 
-def process_body_logic(ctx: CourseExecutionContext):
+def normalize_bos_date(date_str: str) -> str:
+    """Targeted normalization for the date component only."""
+    if not date_str or date_str.upper() in ["N/A", "NONE"]:
+        return "N/A"
+    
+    # Split "Jan/25" or "January/2025"
+    parts = date_str.split('/')
+    if len(parts) != 2:
+        return date_str # Fallback if format is weird
+    
+    month_part = parts[0].strip().lower().replace(".", "")
+    year_part = parts[1].strip()
+    
+    # Use MONTH_MAP from contracts.py
+    normalized_month = MONTH_MAP.get(month_part, month_part.capitalize())
+    
+    # Normalize Year (2-digit to 4-digit)
+    if len(year_part) == 2:
+        normalized_year = f"20{year_part}"
+    else:
+        normalized_year = year_part
+        
+    return f"{normalized_month} {normalized_year}"
+
+def run_policy_gate(ctx: CourseExecutionContext):
     """
-    STAGE-6: Body Grammar Gate.
-    Automatically identifies sections described in contracts.py and 
-    validates their internal grammar.
+    STAGE-6: Policy & Data Normalization.
     """
-    if not ctx.is_eligible or ctx.structure is None:
+    if not ctx.is_eligible or ctx.course is None:
         return
 
-    # Automatically get section names from the Contract (CanonicalCourse)
-    # This retrieves keys like 'units', 'outcomes', 'articulation', etc.
-    contract_fields = CanonicalCourse.__annotations__.keys()
-    
-    # Sections partitioned by Stage 1
-    found_sections = ctx.structure.explicit_sections
+    meta = ctx.course.course_meta
 
-    for key, content in found_sections.items():
-        # A. Gate: Only process if the section is defined in our Contract
-        # (Using 'course_description' specifically to match your patterns.py key)
-        if key in contract_fields or key == "course_description":
-            
-            # B. Execute the specific grammar logic from grammar.py
-            # If a section (like 'units') has no grammar rule yet, it ignores softly.
-            check_section_grammar(key, content, ctx)
-            
-        else:
-            # Softly ignore sections not defined in contracts.py (headless sections)
-            continue
+    # 1. Credit Granularity Check
+    if meta.c % 0.5 != 0:
+        ctx.log("STAGE-6", "CREDIT-GRANULARITY", f"Credits {meta.c} not a multiple of 0.5.", fatal=False)
+
+    # 2. Credit Equation Validation
+    calculated_c = (meta.l + meta.t) + (meta.p / 2) + (meta.x / 3)
+    if abs(calculated_c - meta.c) > 0.01:
+        ctx.log("STAGE-6", "CREDIT-MISMATCH", f"Equation check failed: {calculated_c} != {meta.c},", fatal=True)
+
+    # 3. Use the Common Utility for Title Normalization
+    meta.course_title = normalize_syllabus_text(meta.course_title, is_title=True)
 
     #if ctx.is_eligible:
-        #print(f"✅ Stage 6: Body Grammar validated for {ctx.course_code}")
+        #print(f"✅ Stage 6: Policy & Normalization complete for {ctx.course_code}")

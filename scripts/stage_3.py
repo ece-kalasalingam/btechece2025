@@ -1,10 +1,8 @@
 # scripts/stage_3.py
-import re
 from typing import Any
-from datetime import datetime
 from scripts.paths import get_path
-from scripts.utils import get_git_metadata
-from scripts.contracts import CourseExecutionContext, COURSES_DIR, MONTH_MAP
+from scripts.utils import get_git_metadata, validate_course_code
+from scripts.contracts import CourseExecutionContext, COURSES_DIR
 from scripts.patterns import (
     META_PATTERNS, 
     PREREQ_PATTERN, 
@@ -22,37 +20,12 @@ def _extract_optional_field(key: str, pattern: Any, text: str, ctx: CourseExecut
         if val.upper() not in ["NONE", "NIL", "N.A", "NA", ""]:
             ctx.metadata[key] = val
 
-# FIND: normalize_bos_date(raw_text: str)
-# REPLACE WITH:
-def normalize_bos_date(date_str: str) -> str:
-    """Targeted normalization for the date component only."""
-    if not date_str or date_str.upper() in ["N/A", "NONE"]:
-        return "N/A"
-    
-    # Split "Jan/25" or "January/2025"
-    parts = date_str.split('/')
-    if len(parts) != 2:
-        return date_str # Fallback if format is weird
-    
-    month_part = parts[0].strip().lower().replace(".", "")
-    year_part = parts[1].strip()
-    
-    # Use MONTH_MAP from contracts.py
-    normalized_month = MONTH_MAP.get(month_part, month_part.capitalize())
-    
-    # Normalize Year (2-digit to 4-digit)
-    if len(year_part) == 2:
-        normalized_year = f"20{year_part}"
-    else:
-        normalized_year = year_part
-        
-    return f"{normalized_month} {normalized_year}"
-
 def run_footer_extraction(ctx: CourseExecutionContext):
+    if ctx.structure is None or not ctx.is_eligible:
+        return
     if ctx.metadata is None: ctx.metadata = {}
     """Extracts structured governance data from the footer block."""
-    footer_raw = ctx.metadata.get("footer_block_raw", "")
-    footer_dict = {}
+    footer_raw = ctx.structure.footer_block_raw
 
     # Extract based on Footer Patterns
     for key, pattern in FOOTER_PATTERNS.items():
@@ -63,27 +36,20 @@ def run_footer_extraction(ctx: CourseExecutionContext):
                 # Handle numeric Course Level
                 if key == "course_level":
                     try:
-                        footer_dict[key] = int(val) if val.isdigit() else 1
+                        ctx.metadata[key] = int(val) if val.isdigit() else 1
                     except ValueError:
                         ctx.log("STAGE-3", "LVL-CONV-ERR", f"Level '{val}' is not a number.")
-                elif key == "bos_date":
-                    footer_dict[key] = normalize_bos_date(val)
                 else:
-                    footer_dict[key] = val
+                    ctx.metadata[key] = val
 
-    # RULE: Default "Course Author" if empty
-    if not footer_dict.get("course_author"):
-        footer_dict["course_author"] = "Department Curriculum Committee"
-
+    print(f"Extracted footer metadata for {ctx.course_code}: {ctx.metadata}")
+    validate_course_code(ctx.course_code)
     file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
     git_ver, git_date, git_hash = get_git_metadata(file_path)
     
-    footer_dict["document_version"] = git_ver
-    footer_dict["document_date"] = git_date
-    footer_dict["document_git_hash"] = git_hash
-
-    # Store for Stage 4 assembly
-    ctx.metadata["footer_governance"] = footer_dict
+    ctx.metadata["document_version"] = git_ver
+    ctx.metadata["document_date"] = git_date
+    ctx.metadata["document_git_hash"] = git_hash
 
 def run_metadata_extraction(ctx: CourseExecutionContext):
     if ctx.structure is None or not ctx.is_eligible:
@@ -94,7 +60,14 @@ def run_metadata_extraction(ctx: CourseExecutionContext):
 
     # Extract Course Code
     title_match = COURSE_CODE_HEADER_PATTERN.search(header_text)
-    ctx.course_code = title_match.group(1).strip() if title_match else "UNTITLED"
+    declared_course_code = title_match.group(1) if title_match else "UNTITLED"
+    if declared_course_code != ctx.course_code:
+        ctx.log(
+            "STAGE-3",
+            "COURSE-CODE-MISMATCH",
+            f"Declared CourseCode '{declared_course_code}' does not match index/file code '{ctx.course_code}'.",
+            fatal=True
+        )
 
     # Extract Title (Key aligned with Stage 4)
     title_match = COURSE_TITLE_PATTERN.search(header_text)

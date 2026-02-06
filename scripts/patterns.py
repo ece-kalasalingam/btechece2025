@@ -16,6 +16,7 @@ META_PATTERNS = {
 }
 COURSE_CODE_HEADER_PATTERN = re.compile(r"^COURSE\s*CODE\s*:\s*([A-Z0-9]+)$", re.I | re.M)
 # Matches "Course Title: Digital Systems"
+H1_PATTERN = re.compile(r"^#\s+(.+)$")
 COURSE_TITLE_PATTERN = re.compile(r"^COURSE\s*TITLE\s*:\s*(.*)$", re.I | re.M)
 
 # Matches "Prerequisite: CS101" or "Prerequisite: None"

@@ -4,7 +4,7 @@ import os
 import dataclasses
 from typing import List, TypeVar, Any
 from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, OUTPUT_JSON_FILE, ViolationLevel, MasterExportData, CHECKPOINTS_DIR
-from scripts.utils import recursive_escape_latex
+from scripts.utils import recursive_escape_latex, validate_course_code
 
 def save_course_checkpoint(ctx: CourseExecutionContext):
     """
@@ -17,11 +17,11 @@ def save_course_checkpoint(ctx: CourseExecutionContext):
     # We only save if there's a course object (Stage 4+ reached)
     if not ctx.course:
         return
-
     # Prepare data (LaTeX escaped for safety)
     course_dict = dataclasses.asdict(ctx.course)
     escaped_data = recursive_escape_latex(course_dict)
     
+    validate_course_code(ctx.course_code)
     file_path = os.path.join(checkpoint_dir, f"{ctx.course_code}.json")
     with open(file_path, "w", encoding="utf-8") as f:
         json.dump(escaped_data, f, indent=4)
@@ -50,6 +50,7 @@ def export_master_data(report: List[CourseExecutionContext], output_path: str = 
             continue
 
         # 2. Load the Checkpointed Data
+        validate_course_code(ctx.course_code)
         checkpoint_path = os.path.join(OUTPUT_DIR, "checkpoints", f"{ctx.course_code}.json")
         if os.path.exists(checkpoint_path):
             with open(checkpoint_path, "r", encoding="utf-8") as f:

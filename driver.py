@@ -5,9 +5,9 @@ import scripts.stage_0 as stage_0
 import scripts.stage_1 as stage_1
 import scripts.stage_2 as stage_2
 import scripts.stage_3 as stage_3
-import scripts.stage_4 as stage_4
 import scripts.stage_5 as stage_5
 import scripts.stage_6 as stage_6
+import scripts.stage_4 as stage_4
 import scripts.stage_7 as stage_7
 import scripts.stage_8 as stage_8
 import scripts.stage_9 as stage_9
@@ -32,14 +32,25 @@ def run_pipeline():
 
     # 1. Load all courses using stage_0 (uses index.md and courses_md/ folder)
     # This calls stage_0.ingest internally to normalize text
-    raw_inputs = stage_0.load_all_courses()
+    #raw_inputs = stage_0.load_all_courses()
     
     master_report = []
     seen_codes = set()
 
-    for idx, (code, raw_text) in enumerate(raw_inputs.items()):
+    #for idx, (code, raw_text) in enumerate(raw_inputs.items()):
+    for idx, (code, raw_text, error) in enumerate(stage_0.iter_courses()):
         # 2. Initialize Context
         ctx = CourseExecutionContext(course_code=code, source_index=idx)
+        if error is not None:
+            ctx.log(
+                stage="STAGE-0",
+                code="COURSE-INGEST-FAILED",
+                msg=error,
+                fatal=True
+            )
+            master_report.append(ctx)
+            continue
+        assert raw_text is not None
         try:
             if code in seen_codes:
                 ctx.log(
@@ -66,10 +77,15 @@ def run_pipeline():
             if ctx.is_eligible:
                 stage_3.run_metadata_extraction(ctx)
 
-            # 6. STAGE 4: Structural Assembly
+            # 6.  STAGE 4: Body Grammar Gate
+            # Validates grammar in sections as per contracts.py
+            if ctx.is_eligible:
+                stage_4.process_body_logic(ctx)
+            
+            # 7.  STAGE 5: Structural Assembly
             # Group metadata into CourseMeta and creates CanonicalCourse object
             if ctx.is_eligible:
-                stage_4.run_course_assembly(ctx)
+                stage_5.run_course_assembly(ctx)
 
             actual_code = ctx.course_code if ctx.course else None
             # Check for conflicting course codes   
@@ -84,14 +100,11 @@ def run_pipeline():
                 # If unique, we register it
                 seen_codes.add(actual_code if actual_code else code)
 
-            # 7. STAGE 5: Policy & Normalization
+            # 8. STAGE 6: Policy & Normalization
             # Validates credit math and applies Title Case to course_title
             if ctx.is_eligible:
-                stage_5.run_policy_gate(ctx)
-            # 8. STAGE 6: Body Grammar Gate
-            # Validates grammar in sections as per contracts.py
-            if ctx.is_eligible:
-                stage_6.process_body_logic(ctx)
+                stage_6.run_policy_gate(ctx)
+
             if ctx.is_eligible:
                 stage_7.save_course_checkpoint(ctx)
         except Exception as e:
@@ -115,7 +128,7 @@ def run_pipeline():
             error = ctx.violations[-1].message if ctx.violations else "Unknown error"
             code = ctx.violations[-1].code if ctx.violations else "Unknown error"
             stage = ctx.violations[-1].stage if ctx.violations else "Stage Unknown"
-            print(f"❌ {code}: Failed at {stage} - {error}")
+            print(f"❌ {ctx.course_code}: {code} - Failed at {stage} - {error}")
             
         master_report.append(ctx)
     stage_7.export_master_data(master_report)

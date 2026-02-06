@@ -101,9 +101,6 @@ class CourseMeta:
     c: float
     prerequisite: Optional[str] = None
     corequisite: Optional[str] = None
-
-@dataclass
-class CourseFooter:
     course_author: str = "Department Curriculum Committee"
     bos_date: str = "N/A"
     course_revision: str = "1.0"
@@ -111,6 +108,7 @@ class CourseFooter:
     document_version: str = "1.0"
     document_date: str = "N/A"
     document_git_hash: str = "N/A"
+    
 
 @dataclass
 class CanonicalCourse:
@@ -124,7 +122,6 @@ class CanonicalCourse:
     articulation: Optional[str] = None
     assessment: Optional[str] = None
     rubrics: Optional[str] = None
-    footer: CourseFooter = field(default_factory=CourseFooter)
 
 @dataclass
 class MasterExportData:

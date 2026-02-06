@@ -14,12 +14,20 @@ PURPOSE
 from scripts.contracts import DocumentStructure, CourseExecutionContext, COURSE_SECTION_SEQUENCE
 from scripts.patterns import (
     COURSE_CODE_HEADER_PATTERN,
-    SECTION_TITLE_MAP
+    SECTION_TITLE_MAP, 
+    H1_PATTERN
 )
+def extract_course_title_from_preamble(preamble_lines: list[str]) -> str:
+    for line in preamble_lines:
+        match = H1_PATTERN.match(line.strip())
+        if match:
+            return match.group(1).strip()
+    raise ValueError(
+        "Missing course title: no level-1 heading found before COURSE CODE"
+    )
 
 def validate_structure(raw_text: str, ctx: CourseExecutionContext):
     lines = raw_text.splitlines()
-    
     # 1. Find Anchor (Course Code)
     start_idx = -1
     for i, line in enumerate(lines):
@@ -32,6 +40,8 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
         return
 
     relevant_lines = lines[start_idx:]
+    preamble_lines = lines[:start_idx]
+    course_title = extract_course_title_from_preamble(preamble_lines)
     
     # 2. Identify ALL Level-2 Headers as Boundaries
     # This ensures "Unit 1" stops the "Description" block even if not in sequence
@@ -48,6 +58,14 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
                 "line_index": i,
                 "raw_title": raw_title
             })
+    if not found_headers:
+        ctx.log(
+            "STAGE-1",
+            "INVALID-STRUCTURE",
+            "A course must have at least one section header (## ...) after COURSE CODE.",
+            True
+        )
+        return
 
     # 3. Validate the Mandatory Sequence
     # We check if the keys we NEED exist in the keys we FOUND
@@ -61,16 +79,25 @@ def validate_structure(raw_text: str, ctx: CourseExecutionContext):
     # 4. Partitioning (The Slicer)
     # This logic now correctly stops at ANY ## header
     first_header_line = found_headers[0]['line_index']
-    header_raw = f"Course Title: {lines[0].lstrip('#').strip()}\n" + \
-                 "\n".join(relevant_lines[:first_header_line]).strip()
+    header_raw = (
+        f"Course Title: {course_title}\n" +
+        "\n".join(relevant_lines[:first_header_line])
+    )
+    if not course_title or course_title.lower().startswith("course code"):
+        ctx.log(
+            "STAGE-1",
+            "INVALID-COURSE-TITLE",
+            "Course title must be a level-1 heading before COURSE CODE.",
+            fatal=True
+        )
     
     if ctx.metadata is None: ctx.metadata = {}
     for i in range(len(relevant_lines) - 1, 0, -1):
         if relevant_lines[i].strip() == "---":
-            ctx.metadata["footer_block_raw"] = "\n".join(relevant_lines[i+1:]).strip()
+            footer_raw = "\n".join(relevant_lines[i+1:]).strip()
             relevant_lines = relevant_lines[:i] # Remove footer from body
             break
-    footer_raw = ctx.metadata.get("footer_block_raw", "")
+    #footer_raw = ctx.metadata.get("footer_block_raw", "")
 
     sections_content = {}
     for i in range(len(found_headers)):
