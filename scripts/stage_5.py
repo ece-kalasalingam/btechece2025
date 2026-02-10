@@ -43,6 +43,7 @@ def run_course_assembly(ctx: CourseExecutionContext):
         outcomes=ctx.extracted_data.get("course_outcomes", []),
         syllabus=ctx.extracted_data.get("syllabus", []),
         textbooks=ctx.extracted_data.get("textbooks", []),
+        references=ctx.extracted_data.get("references", []),
         articulation=ctx.structure.explicit_sections.get("articulation_matrix"),
         # Key updated to match SECTION_TITLE_MAP in patterns.py
         assessment=ctx.structure.explicit_sections.get("assessment_schemes"),

@@ -431,31 +431,8 @@ def _extract_textbooks_data(content: str, ctx):
     ctx.extracted_data["textbooks"] = textbooks
 
 def _extract_references_data(content: str, ctx: CourseExecutionContext):
-    """
-    STAGE-5: Extract References data.
-
-    Output schema:
-    - Print reference:
-        {
-          "type": "PRINT",
-          "subtype": "STANDARD" | "GENERAL",
-          "authors": [..],
-          "title": "...",
-          "source": "...",
-          "year": YYYY
-        }
-
-    - URL reference:
-        {
-          "type": "WEB",
-          "subtype": "WIKI" | "STANDARD" | "GENERAL",
-          "url": "https://..."
-        }
-    """
     references = []
-
     lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
-
     for ln in lines:
         # Strip list number
         m = re.match(r'^\s*(\d+)\.\s+(.*)$', ln)
@@ -469,24 +446,13 @@ def _extract_references_data(content: str, ctx: CourseExecutionContext):
             return []
 
         body = m.group(2).strip()
-
         # --------------------------------------------------
         # URL-only reference
         # --------------------------------------------------
         if body.startswith("http://") or body.startswith("https://"):
             url = body
-
-            domain = urlparse(url).netloc.lower()
-            subtype = "GENERAL"
-
-            if "wikipedia.org" in domain:
-                subtype = "WIKI"
-            elif any(d in domain for d in STANDARD_DOMAINS):
-                subtype = "STANDARD"
-
             references.append({
                 "type": "WEB",
-                "subtype": subtype,
                 "url": url
             })
             continue
@@ -494,39 +460,31 @@ def _extract_references_data(content: str, ctx: CourseExecutionContext):
         # --------------------------------------------------
         # Print-style reference
         # --------------------------------------------------
-        parsed = parse_print_reference_entry(
-            ln,
-            ctx,
-            err_prefix="REFERENCES",
-            year_range_regex=None  # references can be older
-        )
+        n = TEXTBOOK_PATTERN.match(ln)
 
-        # parse_print_reference_entry already logged fatal errors
-        if not parsed:
+        if not n:
+            # Grammar should have caught this earlier
+            ctx.log(
+                "STAGE-5",
+                "REFERENCES-EXTRACT-FAILED",
+                f"Unable to extract textbook entry in references section: {ln}",
+                fatal=True
+            )
             return []
 
-        # Extract fields again (safe because grammar already passed)
-        body = parsed["raw"].split(".", 1)[1].strip()
 
-        # Authors
-        authors_part, rest = body.split(",", 1)
-        authors = [a.strip() for a in authors_part.split(",") if a.strip()]
+        authors_raw = n.group("authors")
+        title = n.group("title").strip()
+        publisher = n.group("publisher").strip()
+        year = int(n.group("year"))
 
-        # Title
-        title_match = re.search(r'["“\']([^"”\']+)["”\']', body)
-        title = title_match.group(1) if title_match else ""
-
-        # Source (between title and year)
-        after_title = body[title_match.end():].strip()
-        source_part = after_title.lstrip(",").rsplit(",", 1)[0].strip()
-
-        # Year
-        year = int(re.search(r'(\d{4})\.\s*$', body).group(1))
+        # Split authors safely (comma-separated)
+        authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
 
         # Infer standard vs general
         subtype = "GENERAL"
         if any(k in authors[0].upper() for k in ("IEEE", "ISO", "IEC", "ITU", "ANSI", "RFC")) \
-           or any(k in source_part.upper() for k in ("IEEE", "ISO", "IEC", "ITU", "ANSI", "RFC")):
+           or any(k in publisher.upper() for k in ("IEEE", "ISO", "IEC", "ITU", "ANSI", "RFC")):
             subtype = "STANDARD"
 
         references.append({
@@ -534,7 +492,7 @@ def _extract_references_data(content: str, ctx: CourseExecutionContext):
             "subtype": subtype,
             "authors": authors,
             "title": title,
-            "source": source_part,
+            "source": publisher,
             "year": year
         })
 
@@ -548,6 +506,7 @@ _EXTRACTION_REGISTRY = {
     "syllabus": _extract_syllabus_data,
     "textbooks": _extract_textbooks_data, 
     "references": _extract_references_data,
+}
 
 def extract_section_data(section_key: str, content: str, ctx: CourseExecutionContext):
     """

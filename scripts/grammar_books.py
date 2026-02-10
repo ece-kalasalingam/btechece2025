@@ -1,7 +1,7 @@
 from scripts.contracts import CourseExecutionContext, BLOOM_K_MAP, STRUCTURE_EXEMPT_COURSES
 from scripts.patterns import (
     FORBIDDEN_PHRASES,
-    TEXTBOOKS_NUMBERED_LINE_PATTERN ,
+    TEXTBOOKS_NUMBERED_LINE_PATTERN,
     URL_PATTERN, ISBN_PATTERN,
     PAGE_PATTERN,
     BIBTEX_APA_PATTERN,
@@ -18,8 +18,8 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
         else:
             ctx.log(
                 "STAGE-4",
-                f"{err_prefix}-NOT-NUMBERED-LIST",
-                "Section must contain ONLY a numbered list. No free text allowed.",
+                f"NOT-NUMBERED-LIST",
+                f"{err_prefix} must contain ONLY a numbered list. No free text allowed.",
                 fatal=True
             )
             return None
@@ -27,8 +27,8 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
     if len(numbered) < min_count:
         ctx.log(
             "STAGE-4",
-            f"{err_prefix}-MIN-COUNT",
-            f"Section must contain at least {min_count} entry.",
+            f"MIN-COUNT",
+            f"{err_prefix} must contain at least {min_count} entry.",
             fatal=True
         )
         return None
@@ -41,8 +41,8 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
         if n != expected:
             ctx.log(
                 "STAGE-4",
-                f"{err_prefix}-NUMBERING-NOT-CONTIGUOUS",
-                f"Numbering must be continuous starting at 1. Expected {expected} but found {n}.",
+                f"NUMBERING-NOT-CONTIGUOUS",
+                f"Numbering must be continuous starting at 1. Expected {expected} but found {n} in {err_prefix}.",
                 fatal=True
             )
             return None
@@ -54,10 +54,9 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
 # --------------------------------------------------
 # Helper 2: Parse & validate print-style reference
 # --------------------------------------------------
-def parse_print_reference_entry(
+def validate_print_reference_entry(
     ln: str,
     ctx,
-    *,
     err_prefix="SECTION",
     year_range_regex=None
 ):
@@ -66,12 +65,12 @@ def parse_print_reference_entry(
     Authors, "Title", Source, YYYY.
     """
 
-    m = re.match(r'^\s*(\d+)\.\s+(.*)$', ln)
+    m = TEXTBOOKS_NUMBERED_LINE_PATTERN.match(ln)
     if not m:
         ctx.log("STAGE-4", f"{err_prefix}-BAD-LINE", ln, fatal=True)
         return None
 
-    body = m.group(2).strip()
+    body = m.group("content").strip()
 
     # ---- find opening quote ----
     qpos = qchar = None
@@ -121,15 +120,36 @@ def parse_print_reference_entry(
     if not after_title.startswith(","):
         ctx.log("STAGE-4", f"{err_prefix}-COMMA-AFTER-TITLE", ln, fatal=True)
         return None
+    # ---- 4. Edition (Gatekeeper: Look for 'Edition' followed by a comma) ----
+    # Expecting: ", 2nd Edition, Publisher..."
+    remaining_info = after_title[1:].strip() 
+    edition_match = re.search(r'^(.+?\bEdition)\s*(,)', remaining_info, re.I)
+    
+    if not edition_match:
+        ctx.log("STAGE-4", f"{err_prefix}-EDITION-FORMAT-ERROR", ln, fatal=True)
+        return None
+    
+    edition = edition_match.group(1).strip()
+    # The part after the edition's comma
+    post_edition = remaining_info[edition_match.end():].strip()
 
-    # ---- year at end ----
-    body_clean = body.strip()
-    if not re.search(r',\s*\d{4}\.?\s*$', body_clean):
-        ctx.log("STAGE-4", f"{err_prefix}-YEAR-NOT-AT-END", ln, fatal=True)
+    # ---- 5. Publisher & Year (Gatekeeper: Split from the right) ----
+    # Using rsplit ensures the very last item is the year
+    if ',' not in post_edition:
+        ctx.log("STAGE-4", f"{err_prefix}-PUBLISHER-OR-YEAR-MISSING", ln, fatal=True)
+        return None
+
+    publisher_part, year_part = post_edition.rsplit(',', 1)
+    publisher = publisher_part.strip()
+    year = year_part.strip().rstrip('.')
+
+    # Final Year Check
+    if not re.match(r'^\d{4}$', year):
+        ctx.log("STAGE-4", f"{err_prefix}-INVALID-YEAR-FORMAT", ln, fatal=True)
         return None
 
     if year_range_regex:
-        if not re.search(rf',\s*({year_range_regex})\.?\s*$', body_clean):
+        if not re.search(rf',\s*({year_range_regex})\.?\s*$', year):
             ctx.log("STAGE-4", f"{err_prefix}-YEAR-OUT-OF-RANGE", ln, fatal=True)
             return None
 
@@ -146,7 +166,9 @@ def parse_print_reference_entry(
     return {
         "authors": authors,
         "title": title,
-        "raw": ln
+        "edition": edition,
+        "publisher": publisher,
+        "year": year
     }
 
 
@@ -157,6 +179,7 @@ def validate_url_only_reference(ln: str, ctx, *, err_prefix):
                 f"URL-only reference must contain ONLY a URL: {ln}", fatal=True)
         return None
     return m.group(1)
+
 def _validate_references_grammar(content: str, ctx):
     numbered_lines = validate_numbered_list_block(
         content, ctx, err_prefix="REFERENCES"
@@ -167,10 +190,11 @@ def _validate_references_grammar(content: str, ctx):
     for ln in numbered_lines:
         body = ln.split(".", 1)[1].strip()
 
-        if body.startswith("http://") or body.startswith("https://"):
+        #if body.startswith("http://") or body.startswith("https://"):
+        if URL_PATTERN.search(body):
             validate_url_only_reference(ln, ctx, err_prefix="REFERENCES")
         else:
-            parse_print_reference_entry(
+            validate_print_reference_entry(
                 ln, ctx,
                 err_prefix="REFERENCES",
                 year_range_regex=None   # references can be older
@@ -181,22 +205,6 @@ def _validate_textbooks_grammar(content: str, ctx: CourseExecutionContext):
     text = (content or "").strip()
     if not text:
         return
-
-    # ---------- Optionality policy ----------
-    course_type = ctx.metadata.get("course_type") if ctx and ctx.metadata else None
-    TEXTBOOKS_OPTIONAL_TYPES = {"PC"}
-
-    compact = re.sub(r'\s+', ' ', text).strip().lower()
-    if course_type in TEXTBOOKS_OPTIONAL_TYPES and compact in {"1. not applicable.", "1. na."}:
-        return
-
-    if course_type not in TEXTBOOKS_OPTIONAL_TYPES:
-        if "not applicable" in compact or re.search(r'\bna\.\b|\bna\b', compact):
-            ctx.log("STAGE-4", "TEXTBOOKS-NA-NOT-ALLOWED",
-                    "Textbooks cannot be 'Not Applicable' for this course type.",
-                    fatal=True)
-            return
-
     # ---------- Block-level forbidden scans ----------
     lower_all = text.lower()
     for phrase in FORBIDDEN_PHRASES:
@@ -230,7 +238,7 @@ def _validate_textbooks_grammar(content: str, ctx: CourseExecutionContext):
 
     # ---------- Per-entry validation ----------
     for ln in numbered_lines:
-        parse_print_reference_entry(
+        validate_print_reference_entry(
             ln,
             ctx,
             err_prefix="TEXTBOOKS",

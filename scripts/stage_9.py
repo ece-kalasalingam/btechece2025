@@ -57,7 +57,7 @@ def compile_latex(view_type: str = "a4") -> bool:
     tex_file = base_dir / f"syllabus_{view_type}.tex"
 
     if not tex_file.exists():
-        print(f"❌ Stage 9: Missing .tex file: {tex_file}")
+        print(f"❌ Stage 9: Missing .tex file: {tex_file} or No courses were rendered. Check Stage 8 output.")
         return False
 
     if not check_latex_env():
@@ -191,5 +191,5 @@ def run_stage9(view_type: str = "a4") -> bool:
         return False
     
     cleanup_artifacts(view_type)
-    # cleanup_checkpoints()
+    cleanup_checkpoints()
     return True

@@ -131,7 +131,8 @@ LATEX_ENV_PATTERN = re.compile(r"\\begin\{")
 # --- TEXTBOOKS GRAMMAR (Option-2: quoted title) ---
 
 URL_PATTERN = re.compile(r'(https?://|www\.)', re.IGNORECASE)
-TEXTBOOKS_NUMBERED_LINE_PATTERN = re.compile(r'^\s*(?P<num>\d+)\.\s+\S') 
+#TEXTBOOKS_NUMBERED_LINE_PATTERN = re.compile(r'^\s*(?P<num>\d+)\.\s+\S') 
+TEXTBOOKS_NUMBERED_LINE_PATTERN = re.compile(r'^\s*(?P<num>\d+)\.\s+(?P<content>.*)$')
 
 ISBN_PATTERN = re.compile(
     r'(\bISBN\b|'

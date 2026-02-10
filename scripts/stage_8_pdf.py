@@ -34,7 +34,10 @@ def generate_pdf(view_type="a4"):
         data = json.load(f)
         
     courses_by_category = data.get("courses", {})
-
+    courses_by_category_count = sum(len(courses) for courses in courses_by_category.values())
+    if (not courses_by_category) or courses_by_category_count == 0:
+        print("❌ Stage 8: No courses found in the JSON data. Skipping PDF generation.")
+        return
     template = env.get_template(MAIN_LATEX_TEMPLATE_FILE)
 
     rendered_book = template.render(
@@ -42,8 +45,6 @@ def generate_pdf(view_type="a4"):
         category_order=CATEGORY_ORDER,
         base_template=VIEW_CONFIG[view_type]
     )
-
-
     tex_path = os.path.join(output_syll_dir, f"syllabus_{view_type}.tex")
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(rendered_book)

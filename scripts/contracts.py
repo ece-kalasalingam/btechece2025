@@ -72,6 +72,7 @@ COURSE_SECTION_SEQUENCE = [
     {"title": "COURSE OUTCOMES", "mandatory": True},
     {"title": "SYLLABUS", "mandatory": True},
     {"title": "TEXTBOOKS", "mandatory": True},
+    {"title": "REFERENCES", "mandatory": True},
 ]
 SECTION_OPTIONAL_POLICY = {
     "textbooks": {
@@ -172,6 +173,7 @@ class CanonicalCourse:
     outcomes: List[Dict] = field(default_factory=list)
     syllabus: List[Dict] = field(default_factory=list)
     textbooks: List[Dict] = field(default_factory=list)
+    references: List[Dict] = field(default_factory=list)
     # Sections as raw strings for final pass-through
     articulation: Optional[str] = None
     assessment: Optional[str] = None
