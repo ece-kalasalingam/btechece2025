@@ -1,0 +1,21 @@
+\begin{tabularx}{\textwidth}{|c|X|c|c|}
+\hline
+\textbf{\#} & \textbf{Experiment Details} & \textbf{Hrs.} & \textbf{CO} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{\#} & \textbf{Experiment Title \& Description} & \textbf{Hrs.} & \textbf{CO} \\
+\hline
+\endhead
+
+[% for exp_id, exp in course.syllabus.experiments.items() -%]
+[[ loop.index ]] & 
+\textbf{[[ exp.title ]]}
+[%- if exp.description %] \newline {\small [[ exp.description ]]} [% endif %] & 
+[[ exp.hours ]] & 
+CO[[ exp.cos | join(", CO") ]] \\
+\hline
+[% endfor %]
+
+\end{tabularx}

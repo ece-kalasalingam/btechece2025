@@ -1,45 +1,89 @@
 [% extends base_template %]
 [% block content %]
-  [% for course in courses %]
-    [% set pre = course.course_meta.prerequisite | default("") | trim %]
-    [% set co  = course.course_meta.corequisite  | default("") | trim %]
-    [% set req_block = "" %]
+  [% for cat in category_order %]
+    [% if cat in courses %]
 
-    [% if pre != ""  and pre != "None" %]
-      [% set req_block = "\\textbf{Pre-requisite:} " ~ pre %]
+      \CategoryPage{[[ cat ]]}
+
+      [% for course in courses[cat] %]
+        [% set pre = course.course_meta.prerequisite | default("") | trim %]
+        [% set co  = course.course_meta.corequisite  | default("") | trim %]
+        [% set req_block = "" %]
+
+        [% if pre != ""  and pre != "None" %]
+          [% set req_block = "\\textbf{Pre-requisite:} " ~ pre %]
+        [% endif %]
+
+        [% if (pre and pre != None) and (co and co != None) %]
+          [% set req_block = req_block ~ "\\par " %]
+        [% endif %]
+
+        [% if co != "" and co != "None" %]
+          [% set req_block = req_block ~ "\\textbf{Co-requisite:} " ~ co %]
+        [% endif %]
+
+        \BeginCourse{[[ course.course_code ]]}
+        
+          \CourseTitle{[[ course.course_code ]]}{[[ course.course_meta.course_title ]]}
+          \CourseMetaTable
+              {[[ course.course_code ]]\quad [[ course.course_meta.course_title ]]}
+              {[[ course.course_meta.l ]]}
+              {[[ course.course_meta.t ]]}
+              {[[ course.course_meta.p ]]}
+              {[[ course.course_meta.x ]]}
+              {[[ course.course_meta.c ]]}
+              {[[ req_block ]]}
+              {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
+
+          \BlockHeading{Course Description}
+
+          \noindent [[ course.description ]]
+
+          \BlockHeading{Course Objectives}
+          \begin{itemize}[leftmargin=*, nosep, partopsep=0pt]
+            [% for obj in course.objectives %]
+              \item [[ obj ]]
+            [% endfor %]
+          \end{itemize}
+
+          \BlockHeading{Course Outcomes}
+          \begin{enumerate}[label=\textbf{CO\arabic*:}, leftmargin=*, nosep, partopsep=0pt]
+            [% for co in course.outcomes %]
+              \item [[ co.outcome ]]
+            [% endfor %]
+          \end{enumerate}
+          
+          \BlockHeading{Syllabus}
+          [% if course.syllabus.course_display_type == "UNITIZED-TABLE" %]
+            [% include "syllabus_units.tex.j2" %]
+          [% elif course.syllabus.course_display_type == "LABORATORY-TABLE" %]
+            [% include "syllabus_experiments.tex.j2" %]
+          [% else %]
+            [% include "syllabus_raw.tex.j2" %]
+          [% endif %]
+
+          [% if course.textbooks %]
+            \BlockHeading{Textbook(s)}
+            \begin{enumerate}[leftmargin=*, nosep, partopsep=0pt]
+              [% for tb in course.textbooks %]
+                \item [[ tb.authors | join(', ') ]], 
+                      \textit{``[[ tb.title ]]''},
+                      [[ tb.publisher ]], 
+                      [[ tb.year ]].
+              [% endfor %]
+            \end{enumerate}
+          [% endif %]
+
+          \AdminMetaTable
+            {[[ course.course_meta.course_revision ]]}
+            {[[ course.course_meta.course_author ]]}
+            {[[ course.course_meta.bos_date ]]}
+            {[[ course.course_meta.document_version ]]}
+            {[[ course.course_meta.document_date ]]}
+            {[[ course.course_meta.document_git_hash ]]}
+        \EndCourse
+      [% endfor %]
+
     [% endif %]
-
-    [% if (pre and pre != None) and (co and co != None) %]
-      [% set req_block = req_block ~ "\\par " %]
-    [% endif %]
-
-    [% if co != "" and co != "None" %]
-      [% set req_block = req_block ~ "\\textbf{Co-requisite:} " ~ co %]
-    [% endif %]
-
-    \BeginCourse{[[ course.course_code ]]}
-    
-      \CourseTitle{[[ course.course_code ]]}{[[ course.course_meta.course_title ]]}
-      \CourseMetaTable
-          {[[ course.course_code ]]\quad [[ course.course_meta.course_title ]]}
-          {[[ course.course_meta.l ]]}
-          {[[ course.course_meta.t ]]}
-          {[[ course.course_meta.p ]]}
-          {[[ course.course_meta.x ]]}
-          {[[ course.course_meta.c ]]}
-          {[[ req_block ]]}
-          {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
-
-      \par \noindent \textbf{Course Description}
-      \par \noindent [[ course.description ]]
-      \AdminMetaTable
-        {[[ course.course_meta.course_level ]]}
-        {[[ course.course_meta.course_revision ]]}
-        {[[ course.course_meta.course_author ]]}
-        {[[ course.course_meta.bos_date ]]}
-        {[[ course.course_meta.document_version ]]}
-        {[[ course.course_meta.document_date ]]}
-        {[[ course.course_meta.document_git_hash ]]}
-    \EndCourse
   [% endfor %]
 [% endblock %]

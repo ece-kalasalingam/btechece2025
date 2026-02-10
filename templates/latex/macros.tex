@@ -28,6 +28,18 @@
 
 \renewcommand{\headrulewidth}{0pt}
 \setlength{\headheight}{30mm}  % safe for A4 & A5
+
+\newcommand{\CategoryPage}[1]{%
+  \clearpage
+  \vspace*{\fill}
+  \phantomsection
+  \pdfbookmark[1]{#1}{category-#1}
+  \begin{center}
+    {\Huge\bfseries #1}
+  \end{center}
+  \vfill
+}
+
 % ========================================
 % Course boundary macros
 % ========================================
@@ -39,6 +51,12 @@
 \newcommand{\EndCourse}{%
   % currently empty; hook for future use
 }
+
+\newcommand{\BlockHeading}[1]{%
+  \addvspace{12pt}%
+  \noindent\textbf{#1}%
+}
+
 % ----------------------------------------
 % Course Title Block
 % ----------------------------------------
@@ -49,11 +67,16 @@
 % }
 \newcommand{\CourseTitle}[2]{%
   \phantomsection
-  \pdfbookmark[1]{#1}{course-#1}
+  \pdfbookmark[2]{#1}{course-#1}
   \begin{center}
     {\Large\bfseries #1\quad\MakeUppercase {#2}}
   \end{center}
 }
+%\newcommand{\CourseTitle}[2]{%
+  %\section*{#1\quad\MakeUppercase{#2}}
+  %\pdfbookmark[2]{#1}{course-#1}
+%}
+
 
 % ----------------------------------------
 % Course Meta Table (3 rows, merged left cell)
@@ -78,7 +101,7 @@
 % ----------------------------------------
 % Administrative Meta Table
 % ----------------------------------------
-\newcommand{\AdminMetaTable}[7]{%
+\newcommand{\AdminMetaTable}[6]{%
   \vfill  
   \begin{flushleft} % Forces alignment to the left edge
     \nointerlineskip
@@ -88,14 +111,13 @@
       \renewcommand{\arraystretch}{1.5}
       \begin{tabularx}{\textwidth}{|X|X|}
         \hline
-        \rowcolor[gray]{0.9} \multicolumn{2}{|c|}{\textbf{Administrtive Detail(s)}} \\ \hline
-        Course Level  & #1 \\ \hline
-        Course Revision & #2 \\ \hline
-        Course Author & #3 \\ \hline
-        BoS Approval  & #4 \\ \hline
-        Document Version & #5 \\ \hline
-        Document Date  & #6 \\ \hline
-        Document Git Hash  & #7 \\ \hline
+        \rowcolor[gray]{0.9} \multicolumn{2}{|c|}{\textbf{Administrative Detail(s)}} \\ \hline
+        Course Revision & #1 \\ \hline
+        Course Author & #2 \\ \hline
+        BoS Approval  & #3 \\ \hline
+        Document Version & #4 \\ \hline
+        Document Date  & #5 \\ \hline
+        Document Git Hash  & #6 \\ \hline
       \end{tabularx}
     \end{minipage}
   \end{flushleft}

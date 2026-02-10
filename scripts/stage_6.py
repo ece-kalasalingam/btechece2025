@@ -1,5 +1,6 @@
-from scripts.contracts import MONTH_MAP, CourseExecutionContext
-from scripts.utils import normalize_syllabus_text
+from scripts.contracts import MONTH_MAP, CourseExecutionContext, CO_MIN_COUNT, CO_MAX_COUNT 
+from scripts.utils import normalize_syllabus_text, capitalize_if_first_char_english
+from scripts.md_to_latex import MarkdownToLatexConverter
 
 def normalize_bos_date(date_str: str) -> str:
     """Targeted normalization for the date component only."""
@@ -46,14 +47,71 @@ def run_policy_gate(ctx: CourseExecutionContext):
     # 3. Use the Common Utility for Title Normalization
     meta.course_title = normalize_syllabus_text(meta.course_title, is_title=True)
 
-    # 4. Course Level range (0–6) is a policy guideline, not a hard constraint.
-    if not (0 <= meta.course_level <= 6):
+    # 4. Course Type PC must have P > 0 and must have L+T = 0
+    if meta.course_type.upper() == "PC":
+        if meta.p <= 0:
+            ctx.log("STAGE-6", "PC-PRACTICAL-REQUIREMENT", f"Course Type 'PC' must have P > 0 but has P  {meta.p}.", fatal=True)
+        if (meta.l + meta.t) != 0:
+            ctx.log("STAGE-6", "PC-LT-CONSTRAINT", f"Course Type 'PC' must have L+T = 0 but has L = {meta.l} and T = {meta.t}.", fatal=True)       
+    
+    #5 Coure Type TC must have P = 0 and must have (L+T) > 0
+    if meta.course_type.upper() == "TC":
+        if meta.p != 0:
+            ctx.log("STAGE-6", "TC-PRACTICAL-CONSTRAINT", f"Course Type 'TC' must have P =0 but has P = {meta.p}.", fatal=True)
+        if (meta.l + meta.t) <= 0:
+            ctx.log("STAGE-6", "TC-LT-REQUIREMENT", f"Course Type 'TC' must have (L+T) > 0 but has L = {meta.l} and T = {meta.t}.", fatal=True)
+    
+    # 6. Coure Type IC (IC-T or IC-P) must have P+X > 0 and must have L+T > 0
+    if meta.course_type.upper() in ["IC-T", "IC-P"]:
+        if (meta.p + meta.x) <= 0:
+            ctx.log("STAGE-6", "IC-PX-REQUIREMENT", f"Course Type '{meta.course_type}' must have P+X > 0 but has P = {meta.p} and X = {meta.x}.", fatal=True)
+        if (meta.l + meta.t) <= 0:
+            ctx.log("STAGE-6", "IC-LT-REQUIREMENT", f"Course Type '{meta.course_type}' must have L+T > 0 but has L = {meta.l} and T = {meta.t}.", fatal=True)   
+
+
+    # 7. Capitalize the starting English alphabet in the description, objectives and outcomes if they are not already capitalized.
+    ctx.course.description = capitalize_if_first_char_english(ctx.course.description)
+    ctx.course.objectives = [
+        capitalize_if_first_char_english(obj)
+        for obj in ctx.course.objectives
+    ]
+    for co in ctx.course.outcomes:
+        co["outcome"] = capitalize_if_first_char_english(co["outcome"])
+
+    # 8. To do check the CO count
+    co_count = len(ctx.course.outcomes)
+    if not (CO_MIN_COUNT <= co_count <= CO_MAX_COUNT):
         ctx.log(
             "STAGE-6",
-            "COURSE-LEVEL-POLICY-VIOLATION",
-            f"Course Level {meta.course_level} is outside the recommended range (0–6).",
-            fatal=False
+            "OUTCOMES-COUNT",
+            f"Course must contain {CO_MIN_COUNT}-{CO_MAX_COUNT} valid outcomes, but found {co_count} outcomes.",
+            fatal=True
         )
+
+    # 9. Convert MD to Latex for the special courses
+    if not ctx.course or not ctx.course.syllabus:
+        return
+
+    content = ctx.course.syllabus.get("content")
+    if not content:
+        return
+
+    converter = MarkdownToLatexConverter()
+    latex = converter.convert(content)
+
+    # Store canonical LaTeX only
+    ctx.course.syllabus["content_latex"] = latex
+
+    # 9. To do check all the COs are mapped in the syllabus
+
+    # 4. Course Level range (0–6) is a policy guideline, not a hard constraint.
+    # if not (0 <= meta.course_level <= 6):
+      #  ctx.log(
+       #     "STAGE-6",
+        #    "COURSE-LEVEL-POLICY-VIOLATION",
+         #   f"Course Level {meta.course_level} is outside the recommended range (0–6).",
+          #  fatal=False
+        #)
 
     #if ctx.is_eligible:
         #print(f"✅ Stage 6: Policy & Normalization complete for {ctx.course_code}")

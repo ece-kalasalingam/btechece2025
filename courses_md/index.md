@@ -1,4 +1,3 @@
-## Programme Courses
+- ECE002
 - ECE000
 - ECE001
-- ECE002

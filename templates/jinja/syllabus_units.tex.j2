@@ -1,0 +1,59 @@
+\begin{tabularx}{\textwidth}{|c|X|c|c|}
+
+  \hline
+  \textbf{Unit} & \textbf{Contents} & \textbf{Hrs.} & \textbf{CO} \\
+  \hline
+  \endfirsthead
+
+  \hline
+  \textbf{Unit} & \textbf{Contents} & \textbf{Hrs.} & \textbf{CO} \\
+  \hline
+  \endhead
+
+  \hline
+\multicolumn{4}{r}{\textit{Continued on next page}}
+\\
+\endfoot
+
+\endlastfoot
+
+  [% for unit in course.syllabus.units %]
+    % ---------- Row 1 : Unit header ----------
+    \textbf{[[ unit.unit_number ]]} &
+    \textbf{[[ unit.unit_title ]]} &
+    \textbf{[[ unit.unit_hours ]]} &
+    \textbf{CO[[ unit.unit_cos_raw | join(", CO") ]]} \\
+    % ---------- Row 2 : Topics ----------
+    &\textit{Topics:}
+    [% for topic in unit.topics -%]
+      [[ topic.title ]]: [[ topic.subtopics | join(", ") ]][% if not loop.last %]; [% else %]. [% endif %]
+    [%- endfor %]
+    &
+    [[ unit.theory_hours ]] &
+    \\
+    % ---------- Next Row : Experiments  ----------
+    [% if unit.experiments %]
+      &
+      [% for e in unit.experiments %]
+        \textit{Experiment: [[ e.title ]]} \newline
+        \hspace*{1.5em} -- [[ e.description ]]
+      [% endfor %]
+      &
+      [[ unit.practical_hours ]] &
+      \\
+    [% endif %]
+    % ---------- Next Row :  X-Activities ----------
+    [% if unit.x_activities %]
+      &
+      [% for x in unit.x_activities %]
+        \textit{X-Activity: [[ x.title ]]} \newline
+        \hspace*{1.5em} -- [[ x.description ]]
+      [% endfor %]
+      &
+      [[ unit.x_activity_hours ]] &
+      \\
+    [% endif %]
+    \hline
+  [% endfor %]
+
+  \end{tabularx}

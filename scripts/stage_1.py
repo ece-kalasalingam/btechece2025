@@ -19,7 +19,7 @@ NO VALIDATION. NO POLICY. NO SEMANTICS.
 
 import re
 from scripts.contracts import DocumentStructure, CourseExecutionContext
-from scripts.patterns import COURSE_CODE_HEADER_PATTERN, H1_PATTERN
+from scripts.patterns import COURSE_CODE_HEADER_PATTERN, H1_PATTERN, META_PATTERNS
 
 SECTION_HEADING_PATTERN = re.compile(r"^##\s+(.*)$")
 
@@ -113,6 +113,12 @@ def run_structure_parse(raw_text: str, ctx: CourseExecutionContext) -> None:
         f"Course Title: {course_title}\n"
         + "\n".join(relevant_lines[:first_section_line]).strip()
     )
+    meta = {}
+
+    for key, pattern in META_PATTERNS.items():
+        m = pattern.search(header_block_raw)
+        if m:
+            meta[key] = m.group(1).strip()
 
     # -------------------------------------------------
     # 6. Slice ALL sections
@@ -130,5 +136,6 @@ def run_structure_parse(raw_text: str, ctx: CourseExecutionContext) -> None:
     ctx.structure = DocumentStructure(
         header_block_raw=header_block_raw,
         explicit_sections=sections_content,
-        footer_block_raw=footer_raw
+        footer_block_raw=footer_raw,
+        header_meta_raw=meta
     )

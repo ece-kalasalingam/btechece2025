@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 from enum import Enum, auto
 # File system constants
 COURSES_DIR = "courses_md"
@@ -8,9 +8,14 @@ OUTPUT_DIR = "output_generated"
 OUTPUT_JSON_FILE = "master_data.json"
 OUTPUT_SYLL_DIR = "syllabus_files"
 TEMPLATES_DIR = "templates"
+JINJA_TEMPLATES_DIR = "jinja"
+DOCX_TEMPLATES_DIR = "docx"
 MAIN_LATEX_TEMPLATE_FILE = "syllabus_body.tex.j2"
-DESTINATION_DIR = "final_pdfs"
+DESTINATION_DIR = "final_documents"
 CHECKPOINTS_DIR = "checkpoints"
+CO_MIN_COUNT = 3
+CO_MAX_COUNT = 6
+
 
 MONTH_MAP = {
         "jan": "Jan.", "january": "Jan.", "feb": "Feb.", "february": "Feb.",
@@ -19,18 +24,39 @@ MONTH_MAP = {
         "aug": "Aug.", "august": "Aug.", "sep": "Sep.", "sept": "Sep.", "september": "Sep.",
         "oct": "Oct.", "october": "Oct.", "nov": "Nov.", "november": "Nov.", "dec": "Dec.", "december": "Dec."
     }
+BLOOM_K_MAP = {
+    1: {"RE", "UN"},
+    2: {"AP", "AN"},
+    3: {"EV", "CR"},
+}
 
-# PDF View Configurations
+BLOOM_EXPANSION = {
+    "RE": "Remember",
+    "UN": "Understand",
+    "AP": "Apply",
+    "AN": "Analyze",
+    "EV": "Evaluate",
+    "CR": "Create",
+}
+
+
+# View Configurations
 VIEW_CONFIG = {
     "a4": "base_a4.tex.j2",
-    "a5": "base_a5.tex.j2"
+    "a5": "base_a5.tex.j2",
+    "xlsx-courses-list": None,
+    "docx-co-bloom": None
 }
+
+STRUCTURE_EXEMPT_COURSES = {"ECE002"}
 
 class CourseCategory(Enum):
     FCM = "FCM"  # Foundation Core
     PCM = "PCM"  # Programme Core
     SEM = "SEM"  # Skill Enhancement
     # Add other categories as per R2025
+
+CATEGORY_ORDER = ["FCM", "PCM", "SEM"]  # Define the order of categories in the final pdf
 
 class CourseType(Enum):
     TC = "TC"      # Theory Course
@@ -42,7 +68,19 @@ class CourseType(Enum):
 # Section Sequence
 COURSE_SECTION_SEQUENCE = [
     {"title": "COURSE DESCRIPTION", "mandatory": True},
+    {"title": "COURSE OBJECTIVES", "mandatory": True},
+    {"title": "COURSE OUTCOMES", "mandatory": True},
+    {"title": "SYLLABUS", "mandatory": True},
+    {"title": "TEXTBOOKS", "mandatory": True},
 ]
+SECTION_OPTIONAL_POLICY = {
+    "textbooks": {
+        "course_codes": {
+        },
+        "course_types": {"PC"},
+        "course_categories": {"SEM"},
+    }
+}
 
 MANDATORY_METADATA = {
     "Course Category": "category",
@@ -66,7 +104,20 @@ class DocumentStructure:
     header_block_raw: str
     explicit_sections: Dict[str, str] # Keyed by canonical section name
     footer_block_raw: str
+    header_meta_raw: dict | None = None
+@dataclass
+class TableRenderInfo:
+    start_line: int
+    columns: int
+    rows: int
 
+
+@dataclass
+class RenderReport:
+    math_unbalanced_lines: List[Tuple[int, str]] = field(default_factory=list)
+    latex_special_char_lines: List[Tuple[int, List[str], str]] = field(default_factory=list)
+    long_line_risk: List[Tuple[int, str]] = field(default_factory=list)
+    tables: List[TableRenderInfo] = field(default_factory=list)
 @dataclass
 class CourseExecutionContext:
     course_code: str
@@ -81,6 +132,7 @@ class CourseExecutionContext:
 
     # Stage-4 Product: The Canonical Object
     course: Optional[Any] = None # Will be CanonicalCourse
+    render_report: Optional[RenderReport] = None
 
     def log(self, stage: str, code: str, msg: str, fatal: bool = True):
         level = ViolationLevel.FATAL if fatal else ViolationLevel.WARNING
@@ -104,7 +156,7 @@ class CourseMeta:
     course_author: str = "Department Curriculum Committee"
     bos_date: str = "N/A"
     course_revision: str = "1.0"
-    course_level: int = 1
+    course_level: Optional[int] = None
     document_version: str = "1.0"
     document_date: str = "N/A"
     document_git_hash: str = "N/A"
@@ -116,8 +168,10 @@ class CanonicalCourse:
     course_code: str
     course_meta: CourseMeta  # Grouped metadata
     description: str
-    units: List[Dict] = field(default_factory=list)
+    objectives: List[str] = field(default_factory=list)
     outcomes: List[Dict] = field(default_factory=list)
+    syllabus: List[Dict] = field(default_factory=list)
+    textbooks: List[Dict] = field(default_factory=list)
     # Sections as raw strings for final pass-through
     articulation: Optional[str] = None
     assessment: Optional[str] = None
@@ -129,6 +183,15 @@ class MasterExportData:
     The final structure for Stage 7 export.
     Groups results into success, warning, and error buckets.
     """
-    success: List[Dict] = field(default_factory=list)
+    courses: Dict[str, List[Dict]] = field(default_factory=dict)
     warning: List[Dict] = field(default_factory=list)
     error: List[Dict] = field(default_factory=list)
+
+
+@dataclass
+class CourseReportRecord:
+    course_code: str
+    course_title: Optional[str]
+    course_category: Optional[str]
+    is_eligible: bool
+    violations: List[Violation]

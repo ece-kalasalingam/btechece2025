@@ -1,11 +1,20 @@
 \documentclass[10pt,a4paper,twoside, openany]{book}
 \usepackage[inner=3cm,outer=2cm,top=2.5cm,bottom=2.5cm]{geometry}
 \usepackage{fontspec}
-\usepackage[utf8]{inputenc}
-\usepackage{titlesec}
+\usepackage{unicode-math}
+\usepackage{microtype}
+%\setmainfont{XITS}
+%\setmathfont{XITS Math}
+\setmainfont{Libertinus Serif}
+\setmathfont{Libertinus Math}
+\allowdisplaybreaks
 \usepackage[hidelinks]{hyperref}
 \usepackage[table]{xcolor}
-\input{latex/header.tex}
+\usepackage{ltablex}
+\keepXColumns
+\input{latex/macros.tex}
+\usepackage{enumitem}
+\setlength{\parindent}{0pt}
 \begin{document}
 \title{University Course Handbook}
 \author{Generated System}

@@ -21,6 +21,7 @@ from scripts.contracts import (
     DocumentStructure,
     CourseCategory,
     CourseType,
+    SECTION_OPTIONAL_POLICY
 )
 from scripts.utils import get_section_key
 from scripts.patterns import (
@@ -30,6 +31,31 @@ from scripts.patterns import (
     FOOTER_PATTERNS,
 )
 
+def is_section_optional(section_key: str, ctx: CourseExecutionContext) -> bool:
+    meta = ctx.structure.header_meta_raw if ctx.structure else None
+    if not meta:
+        return False  # fail-safe
+    course_code = meta.get("course_code", "").upper().strip()
+    course_type = meta.get("type")
+    category = meta.get("category")
+    policy = SECTION_OPTIONAL_POLICY.get(section_key)
+    
+    if not policy:
+        return False
+
+    # Exact course-code match
+    if course_code and course_code in policy.get("course_codes", set()):
+        return True
+
+    # Course type rule
+    if course_type and course_type in policy.get("course_types", set()):
+        return True
+
+    # Course category rule
+    if category and category in policy.get("course_categories", set()):
+        return True
+
+    return False
 
 # ------------------------------------------------------------------
 # STAGE-2A : HEADER METADATA FORMAT
@@ -90,16 +116,33 @@ def validate_course_title(ctx: CourseExecutionContext, header_text: str) -> None
 def validate_section_presence(ctx: CourseExecutionContext, sections: dict) -> None:
     for item in COURSE_SECTION_SEQUENCE:
         title = item["title"]
-        mandatory = item["mandatory"]
+        base_mandatory = item["mandatory"]
         key = get_section_key(title)
 
         content = sections.get(key, "").strip()
-        if not content:
+        mandatory = base_mandatory
+        if base_mandatory and is_section_optional(key, ctx):
+            mandatory = False
+        if not content and mandatory:
             ctx.log(
                 "STAGE-2C",
                 f"SECTION-MISSING-{key.upper()}",
                 f"Section '{title}' is missing or empty.",
                 fatal=mandatory,
+            )
+    # Reject unknown sections
+    allowed_keys = {
+        item["title"].lower().replace(" ", "_")
+        for item in COURSE_SECTION_SEQUENCE
+    }
+
+    for key in sections.keys():
+        if key not in allowed_keys:
+            ctx.log(
+                "STAGE-2C",
+                "UNKNOWN-SECTION",
+                f"Unknown section found: '{key}'. Only predefined sections are allowed.",
+                fatal=True,
             )
 
 

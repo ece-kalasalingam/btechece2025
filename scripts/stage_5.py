@@ -1,5 +1,18 @@
 # scripts/stage_5.py
 from scripts.contracts import CourseExecutionContext, CanonicalCourse, CourseMeta
+from scripts.data_extraction import extract_section_data
+def extract_body_data(ctx: CourseExecutionContext):
+    """
+    STAGE-5: Body Extraction Gate.
+    Applies extraction rules only to sections that have registered extraction handlers.
+    """
+    if not ctx.is_eligible or ctx.structure is None:
+        return
+
+    found_sections = ctx.structure.explicit_sections
+
+    for key, content in found_sections.items():
+        extract_section_data(key, content, ctx)
 
 def run_course_assembly(ctx: CourseExecutionContext):
     if not ctx.is_eligible or ctx.metadata is None or ctx.structure is None:
@@ -19,7 +32,6 @@ def run_course_assembly(ctx: CourseExecutionContext):
         document_version=ctx.metadata.get("document_version", "1"), # Git commit count
         document_date=ctx.metadata.get("document_date", "N/A"),     # Git date
         document_git_hash=ctx.metadata.get("document_git_hash", "N/A"), # Git Hash
-        course_level=ctx.metadata.get("course_level", 1)
     )
     ctx.metadata = None  # Clear metadata to save memory
 
@@ -27,10 +39,20 @@ def run_course_assembly(ctx: CourseExecutionContext):
         course_code=ctx.course_code,
         course_meta=meta_obj,
         description=ctx.structure.explicit_sections.get("course_description", ""),
-        units=ctx.extracted_data.get("units", []),
-        outcomes=ctx.extracted_data.get("outcomes", []),
+        objectives=ctx.extracted_data.get("course_objectives", []),
+        outcomes=ctx.extracted_data.get("course_outcomes", []),
+        syllabus=ctx.extracted_data.get("syllabus", []),
+        textbooks=ctx.extracted_data.get("textbooks", []),
         articulation=ctx.structure.explicit_sections.get("articulation_matrix"),
         # Key updated to match SECTION_TITLE_MAP in patterns.py
         assessment=ctx.structure.explicit_sections.get("assessment_schemes"),
         rubrics=ctx.structure.explicit_sections.get("rubrics"),
     )
+
+def run_stage_5(ctx: CourseExecutionContext):
+    if not ctx.is_eligible or ctx.structure is None:
+        return
+    extract_body_data(ctx)
+    run_course_assembly(ctx)
+    ctx.extracted_data.clear()
+    ctx.structure = None

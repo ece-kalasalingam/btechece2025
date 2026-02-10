@@ -38,14 +38,7 @@ def run_footer_extraction(ctx: CourseExecutionContext):
                 ctx.log("STAGE-3", "FOOTER-INVALID", f"Footer field '{key}' has an invalid value starting with '-'.", fatal=True)
                 return  # Stop processing footer if any field is invalid
             if val:
-                # Handle numeric Course Level
-                if key == "course_level":
-                    try:
-                        ctx.metadata[key] = int(val) if val.isdigit() else 1
-                    except ValueError:
-                        ctx.log("STAGE-3", "LVL-CONV-ERR", f"Level '{val}' is not a number.")
-                else:
-                    ctx.metadata[key] = val
+                ctx.metadata[key] = val
 
     validate_course_code(ctx.course_code)
     file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
@@ -54,6 +47,7 @@ def run_footer_extraction(ctx: CourseExecutionContext):
     ctx.metadata["document_version"] = git_ver
     ctx.metadata["document_date"] = git_date
     ctx.metadata["document_git_hash"] = git_hash
+    ctx.structure.footer_block_raw = None
 
 def run_metadata_extraction(ctx: CourseExecutionContext):
     if ctx.structure is None or not ctx.is_eligible:
@@ -96,6 +90,7 @@ def run_metadata_extraction(ctx: CourseExecutionContext):
                     "p": int(match.group(3)), "x": int(match.group(4)),
                     "c": float(match.group(5))
                 })
+                ctx.structure.header_block_raw = None
             except (ValueError, IndexError):
                 ctx.log("STAGE-3", "LTPXC-CONV-ERR", "Numeric conversion failed.")
 

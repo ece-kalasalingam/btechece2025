@@ -58,9 +58,134 @@ def extract_between(text: str, start_marker: str, end_marker: Optional[str]) -> 
     except Exception:
         return ""
 
-def strip_markdown_formatting(text: str) -> str:
-    """Removes bold/italic symbols for clean data extraction."""
-    return text.replace("**", "").replace("__", "").replace("*", "").strip()
+import re
+
+def strip_markdown_emphasis(text: str) -> str:
+    """
+    Safely removes Markdown emphasis (*, **, _, __) while preserving:
+    - math expressions ($...$, $$...$$)
+    - subscripts, identifiers, and semantic symbols (*, _)
+    - LaTeX commands and grouping
+    Also unescapes Markdown-escaped punctuation (e.g., \\* -> *) outside math.
+    """
+    # --------------------------------------------------
+    # 1. Protect math blocks ($...$ and $$...$$)
+    # --------------------------------------------------
+    math_blocks = []
+
+    def protect_math(match):
+        key = f"<<<MATH_BLOCK_{len(math_blocks)}>>>"
+        math_blocks.append(match.group(0))
+        return key
+
+    temp = re.sub(
+        r'\$\$.*?\$\$|\$.*?\$',
+        protect_math,
+        text,
+        flags=re.DOTALL
+    )
+
+    # --------------------------------------------------
+    # 2. Strip Markdown emphasis (outside math only)
+    #    IMPORTANT:
+    #    - remove paired markers, not characters
+    #    - do NOT span lines for italics/bold
+    # --------------------------------------------------
+    emphasis_patterns = [
+        # bold + italic
+        (r'\*\*\*(.+?)\*\*\*', r'\1'),
+        (r'___(.+?)___', r'\1'),
+
+        # bold
+        (r'\*\*(.+?)\*\*', r'\1'),
+        (r'__(.+?)__', r'\1'),
+
+        # italic (asterisk)
+        (r'\*([^\*\n]+?)\*', r'\1'),
+
+        # italic (underscore) – avoid snake_case
+        (r'(?<!_)_([^_\n]+?)_(?!_)', r'\1'),
+    ]
+
+    # --------------------------------------------------
+    # Apply emphasis stripping ONLY to non-placeholder text
+    # --------------------------------------------------
+    parts = re.split(r'(<<<MATH_BLOCK_\d+>>>)', temp)
+
+    processed_parts = []
+    for part in parts:
+        if part.startswith('<<<MATH_BLOCK_'):
+            # 🔒 Do NOT touch placeholders
+            processed_parts.append(part)
+        else:
+            # Safe to apply emphasis stripping
+            for pattern, repl in emphasis_patterns:
+                part = re.sub(pattern, repl, part)
+            processed_parts.append(part)
+
+    temp = ''.join(processed_parts)
+
+    # --------------------------------------------------
+    # 2.5 Unescape Markdown-escaped punctuation
+    #      (outside math, explicit & safe)
+    # --------------------------------------------------
+    markdown_escapes = {
+        r'\*': '*',
+        r'\_': '_',
+        r'\#': '#',
+        r'\%': '%',
+        r'\&': '&',
+        r'\~': '~',
+        r'\\': '\\',
+        r'\`': '`',
+    }
+
+    for esc, char in markdown_escapes.items():
+        temp = temp.replace(esc, char)
+
+    # --------------------------------------------------
+    # 3. Restore math blocks (in order)
+    # --------------------------------------------------
+    for i, block in enumerate(math_blocks):
+        temp = temp.replace(f"<<<MATH_BLOCK_{i}>>>", block)
+
+    return temp
+
+
+def extract_bullet_items(text: str) -> list[str]:
+    """
+    Extracts bullet items only:
+    - Ignores paragraphs before and after the bullet list
+    - Removes bullet symbols (-, *, •, 1., 2.)
+    - Ignores empty bullet lines
+    - Preserves math, symbols, Greek, Roman, equations as-is
+    """
+    bullet_items = []
+    bullet_started = False
+
+    for line in text.splitlines():
+        raw = line.rstrip()
+
+        if not raw.strip():
+            continue
+
+        # Match bullet lines: -, *, •, 1., 2.
+        match = re.match(r"^\s*(?:[-*•]|\d+\.)\s+(.*)", raw)
+        if match:
+            bullet_started = True
+            item = match.group(1).strip()
+            if item:
+                bullet_items.append(item)
+            continue
+
+        # Once bullet list has started, stop on first non-bullet
+        if bullet_started:
+            break
+
+        # Ignore paragraphs before first bullet
+        continue
+
+    return bullet_items
 
 def normalize_syllabus_text(text: str, is_title: bool = False) -> str:
     """
@@ -201,3 +326,31 @@ def validate_course_code(code: str) -> None:
 
     if not COURSE_CODE_PATTERN.fullmatch(code):
         raise ValueError(f"Invalid course code format: {code}")
+    
+def capitalize_if_first_char_english(text: str) -> str:
+    """
+    Capitalize the string ONLY if the first character is an English
+    lowercase alphabet (a–z). Otherwise, return the string unchanged.
+    """
+    if not text:
+        return text
+
+    first = text[0]
+    if 'a' <= first <= 'z':
+        return first.upper() + text[1:]
+
+    return text
+def get_column_cells(line):
+    # This regex looks for pipes that are NOT preceded by a backslash
+    # or inside what looks like a math block (simplified for your case)
+    stripped_line = line.strip().strip('|')
+    parts = re.findall(r'(?:\\\||[^|])+', line.strip().strip('|'))
+    pattern = re.compile(r'\|(?=(?:[^\$]*\$[^\$]*\$)*[^\$]*$)')
+    parts = pattern.split(stripped_line)
+    return [p.strip() for p in parts if p.strip()]
+
+def get_column_count(line):
+    # This regex looks for pipes that are NOT preceded by a backslash
+    # or inside what looks like a math block (simplified for your case)
+    parts = re.findall(r'(?:\\\||[^|])+', line.strip().strip('|'))
+    return len(get_column_cells(line))

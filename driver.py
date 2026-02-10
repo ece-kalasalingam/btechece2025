@@ -1,6 +1,6 @@
 import traceback
 import argparse
-from scripts.contracts import CourseExecutionContext, VIEW_CONFIG, ViolationLevel
+from scripts.contracts import CourseExecutionContext, VIEW_CONFIG, ViolationLevel, CourseReportRecord
 import scripts.stage_0 as stage_0
 import scripts.stage_1 as stage_1
 import scripts.stage_2 as stage_2
@@ -85,7 +85,7 @@ def run_pipeline():
             # 7.  STAGE 5: Structural Assembly
             # Group metadata into CourseMeta and creates CanonicalCourse object
             if ctx.is_eligible:
-                stage_5.run_course_assembly(ctx)
+                stage_5.run_stage_5(ctx)
 
             actual_code = ctx.course_code if ctx.course else None
             # Check for conflicting course codes   
@@ -118,7 +118,26 @@ def run_pipeline():
                 msg=f"Internal Engine Error: Please check system logs for details.",
                 fatal=True
             )
-        # Final Logging
+        
+        # Display render report (Stage-5 diagnostics), if any
+        if ctx.render_report:
+            print(f"🧾 {ctx.course_code}: Render diagnostics found")
+            if ctx.render_report.math_unbalanced_lines:
+                print("   └─ Unbalanced math at lines:",
+                    [ln for ln, _ in ctx.render_report.math_unbalanced_lines])
+
+            if ctx.render_report.latex_special_char_lines:
+                print("   └─ LaTeX special characters at lines:",
+                    [ln for ln, _, _ in ctx.render_report.latex_special_char_lines])
+
+            if ctx.render_report.long_line_risk:
+                print("   └─ Overfull line risk at lines:",
+                    [ln for ln, _ in ctx.render_report.long_line_risk])
+
+            if ctx.render_report.tables:
+                print("   └─ Tables detected:",
+                    len(ctx.render_report.tables))
+
         # Final Logging
         warnings = [v for v in ctx.violations if v.level == ViolationLevel.WARNING]
         fatals   = [v for v in ctx.violations if v.level == ViolationLevel.FATAL]
@@ -144,13 +163,30 @@ def run_pipeline():
             else:
                 print(f"❌ {ctx.course_code}: Failed due to unknown error.")
             
-        master_report.append(ctx)
+        course_title = None
+        course_category = None
+        if ctx.course and ctx.course.course_meta:
+            course_title = ctx.course.course_meta.course_title
+            course_category = ctx.course.course_meta.course_category    
+        master_report.append(
+            CourseReportRecord(
+                course_code=ctx.course_code,
+                course_title=course_title,
+                course_category=course_category,
+                is_eligible=ctx.is_eligible,
+                violations=ctx.violations
+            )
+        )
+        #master_report.append(ctx)
     stage_7.export_master_data(master_report)
     for v in views_to_process:
         # print(f"🛠️ Processing PDF View: {v}")
         # Stage 8 will now use VIEW_CONFIG[v] internally
-        stage_8.run_book_generation(view_type=v)
-        stage_9.run_stage9(view_type=v)
+        if v.startswith("xlsx") or v.startswith("docx"):
+            stage_8.run_book_generation(view_type=v)
+        else:
+            stage_8.run_book_generation(view_type=v)
+            stage_9.run_stage9(view_type=v)
     
     print(f"\n--- Pipeline Complete. Processed {len(master_report)} courses. ---")
 

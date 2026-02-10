@@ -8,9 +8,23 @@ from scripts.contracts import (
     OUTPUT_DIR,
     OUTPUT_SYLL_DIR,
     DESTINATION_DIR,
+    CHECKPOINTS_DIR
 )
 
-
+cleanup_exts = {
+        ".aux",
+        ".out",
+        ".toc",
+        ".lof",
+        ".lot",
+        ".nav",
+        ".snm",
+        ".fls",
+        ".fdb_latexmk",
+        ".synctex.gz",
+        ".tex",
+        ".json"
+    }
 # --------------------------------------------------
 # PRE-FLIGHT CHECK
 # --------------------------------------------------
@@ -128,19 +142,7 @@ def cleanup_artifacts(view_type: str = "a4") -> None:
     base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
 
     # Explicit whitelist of extensions to remove
-    cleanup_exts = {
-        ".aux",
-        ".out",
-        ".toc",
-        ".lof",
-        ".lot",
-        ".nav",
-        ".snm",
-        ".fls",
-        ".fdb_latexmk",
-        ".synctex.gz",
-        ".tex"
-    }
+    
 
     for item in base_dir.iterdir():
         if not item.is_file():
@@ -154,6 +156,28 @@ def cleanup_artifacts(view_type: str = "a4") -> None:
         if item.suffix in cleanup_exts:
             item.unlink(missing_ok=True)
 
+def cleanup_checkpoints() -> None:
+    """
+    Removes LaTeX auxiliary files generated during Stage 9.
+    Keeps the .log file for debugging/audit purposes.
+    """
+
+    base_dir = Path(OUTPUT_DIR) / CHECKPOINTS_DIR
+
+    # Explicit whitelist of extensions to remove
+    
+
+    for item in base_dir.iterdir():
+        if not item.is_file():
+            continue
+
+        # Handle .synctex.gz separately
+        if item.name.endswith(".synctex.gz"):
+            item.unlink(missing_ok=True)
+            continue
+
+        if item.suffix in cleanup_exts:
+            item.unlink(missing_ok=True)
 
 # --------------------------------------------------
 # STAGE 9 ORCHESTRATOR (ONLY ENTRY POINT)
@@ -167,4 +191,5 @@ def run_stage9(view_type: str = "a4") -> bool:
         return False
     
     cleanup_artifacts(view_type)
+    # cleanup_checkpoints()
     return True
