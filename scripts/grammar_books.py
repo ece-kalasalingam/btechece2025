@@ -154,13 +154,17 @@ def validate_print_reference_entry(
             return None
 
     # ---- forbidden patterns ----
-    if (
-        URL_PATTERN.search(ln)
-        or ISBN_PATTERN.search(ln)
-        or PAGE_PATTERN.search(ln)
-        or BIBTEX_APA_PATTERN.search(ln)
-    ):
-        ctx.log("STAGE-4", f"{err_prefix}-FORBIDDEN-PATTERN", ln, fatal=True)
+    if URL_PATTERN.search(ln):
+        ctx.log("STAGE-4", "TEXTBOOKS-URL-NOT-ALLOWED", "URLs are not allowed in Textbooks.", fatal=True)
+        return None
+    if ISBN_PATTERN.search(ln):
+        ctx.log("STAGE-4", "TEXTBOOKS-ISBN-NOT-ALLOWED", "ISBN is not allowed in Textbooks.", fatal=True)
+        return None
+    if PAGE_PATTERN.search(ln):
+        ctx.log("STAGE-4", "TEXTBOOKS-PAGES-NOT-ALLOWED", "Page numbers are not allowed in Textbooks.", fatal=True)
+        return None
+    if BIBTEX_APA_PATTERN.search(ln):
+        ctx.log("STAGE-4", "TEXTBOOKS-BIBTEX-APA-NOT-ALLOWED", "BibTeX/APA clutter not allowed.", fatal=True)
         return None
 
     return {
@@ -213,20 +217,7 @@ def _validate_textbooks_grammar(content: str, ctx: CourseExecutionContext):
                     f"Forbidden content in Textbooks section: '{phrase}'.",
                     fatal=True)
             return
-
-    if URL_PATTERN.search(text):
-        ctx.log("STAGE-4", "TEXTBOOKS-URL-NOT-ALLOWED", "URLs are not allowed in Textbooks.", fatal=True)
-        return
-    if ISBN_PATTERN.search(text):
-        ctx.log("STAGE-4", "TEXTBOOKS-ISBN-NOT-ALLOWED", "ISBN is not allowed in Textbooks.", fatal=True)
-        return
-    if PAGE_PATTERN.search(text):
-        ctx.log("STAGE-4", "TEXTBOOKS-PAGES-NOT-ALLOWED", "Page numbers are not allowed in Textbooks.", fatal=True)
-        return
-    if BIBTEX_APA_PATTERN.search(text):
-        ctx.log("STAGE-4", "TEXTBOOKS-BIBTEX-APA-NOT-ALLOWED", "BibTeX/APA clutter not allowed.", fatal=True)
-        return
-
+        
     # ---------- Numbered list validation ----------
     numbered_lines = validate_numbered_list_block(
         content, ctx,
