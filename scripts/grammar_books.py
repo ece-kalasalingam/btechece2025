@@ -1,11 +1,12 @@
-from scripts.contracts import CourseExecutionContext, BLOOM_K_MAP, STRUCTURE_EXEMPT_COURSES
+from scripts.contracts import CourseExecutionContext
 from scripts.patterns import (
     FORBIDDEN_PHRASES,
+    STANDARD_PATTERN,
     TEXTBOOKS_NUMBERED_LINE_PATTERN,
     URL_PATTERN, ISBN_PATTERN,
-    PAGE_PATTERN,
+    PAGE_PATTERN, URL_SENTRY_PATTERN,
     BIBTEX_APA_PATTERN,
-    QUOTE_PAIRS
+    QUOTE_PAIRS, STANDARD_SENTRY_PATTERN, JOURNAL_SENTRY_PATTERN
 )
 import re
 def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="SECTION"):
@@ -28,7 +29,7 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
         ctx.log(
             "STAGE-4",
             f"MIN-COUNT",
-            f"{err_prefix} must contain at least {min_count} entry.",
+            f"{err_prefix} must contain at least {min_count} entries.",
             fatal=True
         )
         return None
@@ -50,10 +51,6 @@ def validate_numbered_list_block(content: str, ctx, *, min_count=1, err_prefix="
 
     return numbered
 
-
-# --------------------------------------------------
-# Helper 2: Parse & validate print-style reference
-# --------------------------------------------------
 def validate_print_reference_entry(
     ln: str,
     ctx,
@@ -149,8 +146,10 @@ def validate_print_reference_entry(
         return None
 
     if year_range_regex:
-        if not re.search(rf',\s*({year_range_regex})\.?\s*$', year):
-            ctx.log("STAGE-4", f"{err_prefix}-YEAR-OUT-OF-RANGE", ln, fatal=True)
+        # Directly match the 4-digit year against your range pattern
+        if not re.match(rf'^({year_range_regex})$', year):
+            ctx.log("STAGE-4", f"{err_prefix}-YEAR-OUT-OF-RANGE", 
+                    f"Year {year} is out of allowed range ({year_range_regex})", fatal=True)
             return None
 
     # ---- forbidden patterns ----
@@ -175,14 +174,50 @@ def validate_print_reference_entry(
         "year": year
     }
 
-
-def validate_url_only_reference(ln: str, ctx, *, err_prefix):
-    m = re.match(r'^\s*\d+\.\s*(https?://\S+)\s*$', ln)
+def validate_url_reference(ln, ctx, *, err_prefix="SECTION"):
+    # Gatekeeper: Must be a numbered list
+    m = TEXTBOOKS_NUMBERED_LINE_PATTERN.match(ln)
     if not m:
-        ctx.log("STAGE-4", f"{err_prefix}-INVALID-URL",
-                f"URL-only reference must contain ONLY a URL: {ln}", fatal=True)
-        return None
-    return m.group(1)
+        ctx.log("STAGE-4", f"{err_prefix}-URL-NOT-NUMBERED", ln, fatal=True)
+        return False
+     # Gatekeeper: Block forbidden sources
+    if any(phrase in m.group("content").lower() for phrase in FORBIDDEN_PHRASES):
+        ctx.log("STAGE-4", f"{err_prefix}-URL-FORBIDDEN-SOURCE", ln, fatal=True)
+        return False
+    # Does it have a URL?
+    if not URL_PATTERN.search(m.group("content")):
+        return False # Not a URL line, try next
+    return True # It's a valid URL line
+
+def validate_standard_reference(ln, ctx, *, err_prefix="SECTION"):
+    # Gatekeeper: Strict Regex Validation
+    # (Org Code, "Quoted Title", 4-digit Year)
+    # 1. Sentry Check: Does this even look like a standard?
+    if not STANDARD_SENTRY_PATTERN.search(ln):
+        return False 
+
+    # 2. Gatekeeper Check: Is the grammar perfect?
+    if not STANDARD_PATTERN.match(ln):
+        # If the sentry passed but the gatekeeper failed, the user made a typo
+        ctx.log("STAGE-4", f"{err_prefix}-STANDARD-FORMAT-INVALID", ln, fatal=True)
+    
+    return True
+
+def validate_journal_reference(ln, ctx, *, err_prefix="SECTION"):
+    # Sentry check
+    if not JOURNAL_SENTRY_PATTERN.search(ln):
+        return False
+
+    # Gatekeeper: Check for comma after title and year at end
+    # Note: Using the logic from your earlier parse_print_reference_entry
+    if not re.search(r',\s*\d{4}\.?\s*$', ln):
+        ctx.log("STAGE-4", f"{err_prefix}-JOURNAL-YEAR-MISSING", ln, fatal=True)
+        return False
+    if not re.search(r'["”]\s*,\s*', ln):
+        ctx.log("STAGE-4", f"{err_prefix}-JOURNAL-COMMA-AFTER-TITLE", ln, fatal=True)
+        return False
+
+    return True
 
 def _validate_references_grammar(content: str, ctx):
     numbered_lines = validate_numbered_list_block(
@@ -192,18 +227,29 @@ def _validate_references_grammar(content: str, ctx):
         return
 
     for ln in numbered_lines:
-        body = ln.split(".", 1)[1].strip()
+        # 1. URL Gatekeeper (Check first as it's the most distinct)
+        if URL_SENTRY_PATTERN.search(ln):
+            validate_url_reference(ln, ctx, err_prefix="REFERENCES")
+            continue # Move to next line in the for-loop
 
-        #if body.startswith("http://") or body.startswith("https://"):
-        if URL_PATTERN.search(body):
-            validate_url_only_reference(ln, ctx, err_prefix="REFERENCES")
-        else:
-            validate_print_reference_entry(
-                ln, ctx,
-                err_prefix="REFERENCES",
-                year_range_regex=None   # references can be older
-            )
+        # 2. Standard Gatekeeper (Check for Org Codes like ISO/IEEE)
+        if STANDARD_SENTRY_PATTERN.search(ln):
+            validate_standard_reference(ln, ctx, err_prefix="REFERENCES")
+            continue
 
+        # 3. Journal Gatekeeper (Check for Vol/Issue/pp)
+        if JOURNAL_SENTRY_PATTERN.search(ln):
+            validate_journal_reference(ln, ctx, err_prefix="REFERENCES")
+            continue
+
+        # 4. Fallback: Textbook Gatekeeper
+        # If it's none of the above, it MUST follow the book format.
+        # If this fails, it triggers the fatal error inside the function.
+        validate_print_reference_entry(
+            ln, ctx,
+            err_prefix="REFERENCES",
+            year_range_regex=None
+        )
 
 def _validate_textbooks_grammar(content: str, ctx: CourseExecutionContext):
     text = (content or "").strip()

@@ -66,12 +66,39 @@
             \BlockHeading{Textbook(s)}
             \begin{enumerate}[leftmargin=*, nosep, partopsep=0pt]
               [% for tb in course.textbooks %]
-                \item [[ tb.authors | join(', ') ]], 
-                      \textit{``[[ tb.title ]]''},
-                      [[ tb.publisher ]], 
-                      [[ tb.year ]].
+                \item 
+                    [[ tb.authors]], 
+                    \textit{``[[ tb.title ]]''},
+                    [[tb.edition]],
+                    [[ tb.publisher ]], 
+                    [[ tb.year ]].
               [% endfor %]
             \end{enumerate}
+          [% endif %]
+
+          [% if course.references %]
+          \BlockHeading{Reference(s)}
+          \begin{enumerate}[leftmargin=*, nosep, partopsep=0pt]
+            [% for ref in course.references %]
+              \item 
+              [% if ref.format_type == "URL" %]
+                %% Render as a clickable URL
+                \url{[[ ref.url ]]}
+
+              [% elif ref.format_type == "STANDARD" %]
+                %% Render as: IEEE 802.11, "Title", 2020.
+                \textbf{[[ ref.code ]]}, \textit{``[[ ref.title ]]''}, [[ ref.year ]].
+
+              [% elif ref.format_type == "JOURNAL" %]
+                %% Render as: Authors, "Title", Journal Name, Metadata, Year.
+                [[ ref.authors ]], ``[[ ref.title ]]'' \textit{[[ ref.journal ]]}, [[ ref.metadata ]], [[ ref.year ]].
+
+              [% else %]
+                %% Default to BOOK format
+                [[ ref.authors ]], \textit{``[[ ref.title ]]''}, [[ ref.edition ]], [[ ref.publisher ]], [[ ref.year ]].
+              [% endif %]
+            [% endfor %]
+          \end{enumerate}
           [% endif %]
 
           \AdminMetaTable

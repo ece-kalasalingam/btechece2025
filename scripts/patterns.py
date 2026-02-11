@@ -130,7 +130,12 @@ LATEX_ENV_PATTERN = re.compile(r"\\begin\{")
 
 # --- TEXTBOOKS GRAMMAR (Option-2: quoted title) ---
 
-URL_PATTERN = re.compile(r'(https?://|www\.)', re.IGNORECASE)
+URL_SENTRY_PATTERN = re.compile(r'(https?://|www\.)', re.IGNORECASE)
+URL_PATTERN = re.compile(
+    r'^\s*\d+\.\s*' 
+    r'((?:https?://|www\.)[^\s]+)',
+    re.IGNORECASE
+)
 #TEXTBOOKS_NUMBERED_LINE_PATTERN = re.compile(r'^\s*(?P<num>\d+)\.\s+\S') 
 TEXTBOOKS_NUMBERED_LINE_PATTERN = re.compile(r'^\s*(?P<num>\d+)\.\s+(?P<content>.*)$')
 
@@ -176,11 +181,58 @@ TEXTBOOK_PATTERN = re.compile(
     """,
     re.VERBOSE
 )
-STANDARD_DOMAINS = (
-    "ieee.org",
-    "iso.org",
-    "iec.ch",
-    "itu.int",
-    "ansi.org",
-    "rfc-editor.org",
+STANDARD_SENTRY_PATTERN = re.compile(
+    r'^\s*\d+\.\s*'                   # Numbering
+    r'(?:ISO|IEEE|IEC|IS|ANSI|TIA|EIA)'# Org Code
+    r'[\s\d\.\-]+'                     # <--- ALLOWS SPACES, DIGITS, DOTS, AND DASHES
+    r'\s*,\s*'                         # Mandatory comma
+    r'["“]',                           # Opening quote
+    re.I
+)
+# SENTRY: Identifies a line as a Journal Paper
+# Fingerprint: Number -> Text -> Comma -> Quoted Title -> Comma -> (Vol/Issue/No/pp)
+JOURNAL_SENTRY_PATTERN = re.compile(
+    r'^\s*\d+\.\s*'            # Numbering (1.)
+    r'[^"“]+'                  # Authors (anything before the quote)
+    r',\s*'                    # Mandatory comma before quote
+    r'["“][^"”]+["”]'          # The quoted title
+    r'\s*,\s*'                 # Mandatory comma after quote
+    r'.*?\b(Vol|Issue|No|pp)\b', # The "Journal Fingerprint" keywords
+    re.I
+)
+# Specifically for: Authors, "Title", Journal Name, Vol. X, No. Y, Year.
+JOURNAL_PATTERN = re.compile(
+    r'^\s*\d+\.\s*'                          # Numbering
+    r'(?P<authors>.+?),\s*'                  # Authors
+    r'["“](?P<title>.+?)["”],\s*'            # Title
+    r'(?P<journal>.+?),\s*'                  # Journal Name (e.g. Bell System Technical Journal)
+    r'(?P<metadata>.+?),\s*'                 # Vol/Issue/pp (e.g. Vol. 27)
+    r'(?P<year>\d{4})\.?\s*$',               # Year
+    re.I
+)
+STANDARD_PATTERN = re.compile(
+    r'^\s*\d+\.\s*'                          # 1. Numbering (e.g., 1.)
+    r'(?:ISO|IEEE|IEC|IS|ANSI|TIA|EIA)'       # 2. Org Keywords
+    r'[\s\d\.\-:]+'                           # 3. Code sequence (e.g., 802.11-2020)
+    r',\s*'                                   # 4. Mandatory comma
+    r'["“].+?["”]'                            # 5. Title in quotes
+    r',\s*'                                   # 6. Mandatory comma
+    r'\d{4}'                                  # 7. 4-digit Year
+    r'\.?\s*$',                               # 8. Optional dot and end of line
+    re.I
+)
+
+# Named groups allow us to call m.group("code") directly in Stage 6
+STANDARD_EXTRACT_PATTERN = re.compile(
+    r'^\s*\d+\.\s*'                         # 1. Numbering (e.g., 1.)
+    r'(?P<code>'                            # --- START GROUP: code ---
+    r'(?:ISO|IEEE|IEC|IS|ANSI|TIA|EIA)'     # Organization prefix
+    r'[\s\d\.\-:]+'                         # Code digits/symbols (e.g., 802.11-2020)
+    r')'                                    # --- END GROUP: code ---
+    r',\s*'                                 # Mandatory comma
+    r'["“](?P<title>.+?)["”]'               # --- GROUP: title (Inside quotes) ---
+    r',\s*'                                 # Mandatory comma
+    r'(?P<year>\d{4})'                      # --- GROUP: year (4 digits) ---
+    r'\.?\s*$',                             # Optional dot and line end
+    re.I
 )

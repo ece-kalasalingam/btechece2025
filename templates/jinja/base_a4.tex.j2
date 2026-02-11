@@ -1,5 +1,15 @@
 \documentclass[10pt,a4paper,twoside, openany]{book}
-\usepackage[inner=3cm,outer=2cm,top=2.5cm,bottom=2.5cm]{geometry}
+\usepackage[
+    inner=3cm,
+    outer=2cm,
+    top=1.0cm,          % Distance from top of paper to the start of the Header
+    headheight=27mm,    % Your required 27mm header
+    headsep=7mm,        % Space between header and the syllabus content
+    textheight=234mm,   % [CRITICAL] Reduced from 247mm to stop bottom bleed
+    footskip=12mm,      % Space for the page number
+    includehead,        % Tells LaTeX the header is part of the top margin area
+    includefoot         % Tells LaTeX the footer is part of the bottom margin area
+]{geometry}
 \usepackage{fontspec}
 \usepackage{unicode-math}
 \usepackage{microtype}
@@ -12,8 +22,14 @@
 \usepackage[table]{xcolor}
 \usepackage{ltablex}
 \keepXColumns
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
 \input{latex/macros.tex}
 \usepackage{enumitem}
+\usepackage{needspace}
 \setlength{\parindent}{0pt}
 \begin{document}
 \title{University Course Handbook}

@@ -3,6 +3,8 @@ from urllib.parse import urlparse
 from scripts.contracts import STRUCTURE_EXEMPT_COURSES, CourseExecutionContext, RenderReport, TableRenderInfo
 from scripts.patterns import (
     CO_SPLIT_PATTERN,
+    JOURNAL_PATTERN,
+    TEXTBOOKS_NUMBERED_LINE_PATTERN,
     UNIT_HEADING_PATTERN,
     UNIT_CO_MAP_PATTERN,
     THEORY_HEADER_PATTERN,
@@ -14,10 +16,11 @@ from scripts.patterns import (
     PC_EXPERIMENT_CO_PATTERN,
     TABLE_ROW_PATTERN,
     TABLE_SEPARATOR_PATTERN,
-    TEXTBOOK_PATTERN, STANDARD_DOMAINS
+    QUOTE_PAIRS, STANDARD_EXTRACT_PATTERN,
+    URL_PATTERN, STANDARD_SENTRY_PATTERN, 
+    STANDARD_PATTERN, JOURNAL_SENTRY_PATTERN
 )
 from scripts.utils import extract_bullet_items, get_column_count, strip_markdown_emphasis
-from scripts.grammar_books import parse_print_reference_entry
 
 def _type_dispatch(value, *, extract_as: str | None = None):
     if extract_as == "bullets" and isinstance(value, str):
@@ -396,105 +399,111 @@ def _extract_textbooks_data(content: str, ctx):
     """
     textbooks = []
 
-    lines = content.splitlines()
-
+    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+    
     for ln in lines:
-        ln = ln.strip()
-        if not ln:
-            continue
+        data = _extract_single_textbook_data(ln, ctx)
+        if data:
+            textbooks.append(data)
+            
+    ctx.extracted_data["textbooks"] = textbooks
 
-        m = TEXTBOOK_PATTERN.match(ln)
-        if not m:
+def _extract_single_textbook_data(content: str, ctx: CourseExecutionContext):
+    m = TEXTBOOKS_NUMBERED_LINE_PATTERN.match(content)
+    if not m:
             # Grammar should have caught this earlier
             ctx.log(
                 "STAGE-5",
                 "TEXTBOOKS-EXTRACT-FAILED",
-                f"Unable to extract textbook entry: {ln}",
+                f"Unable to extract textbook entry: {content}",
                 fatal=True
             )
             return []
-
-        authors_raw = m.group("authors")
-        title = m.group("title").strip()
-        publisher = m.group("publisher").strip()
-        year = int(m.group("year"))
-
-        # Split authors safely (comma-separated)
-        authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
-
-        textbooks.append({
+    body = m.group("content").strip()
+    
+    try:
+        # 1. Author and Title
+        # We find the first quote index
+        qpos = next(i for i, ch in enumerate(body) if ch in QUOTE_PAIRS)
+        authors = body[:qpos].rstrip(", ").strip()
+        
+        close_q = QUOTE_PAIRS[body[qpos]]
+        end = body.find(close_q, qpos + 1)
+        title = body[qpos + 1:end].strip()
+        
+        # 2. Edition, Publisher, Year
+        # body[end+1:] is ", 2nd Edition, Wiley, 2020."
+        after = body[end + 1:].strip(", .")
+        parts = [p.strip() for p in after.split(",")]
+        
+        return {
             "authors": authors,
             "title": title,
-            "publisher": publisher,
-            "year": year
-        })
-    ctx.extracted_data["textbooks"] = textbooks
+            "edition": parts[0] if len(parts) > 0 else "N/A",
+            "publisher": parts[1] if len(parts) > 1 else "N/A",
+            "year": parts[-1] # Usually the last element
+        }
+    except Exception as e:
+        ctx.log(
+            "STAGE-5",
+            "TEXTBOOKS-EXTRACT-FAILED",
+            f"Error parsing textbook entry: {content} | Exception: {str(e)}",
+            fatal=True
+        )
+        return None
 
 def _extract_references_data(content: str, ctx: CourseExecutionContext):
     references = []
-    lines = [ln.strip() for ln in content.splitlines() if ln.strip()]
+    lines = content.splitlines()
     for ln in lines:
-        # Strip list number
-        m = re.match(r'^\s*(\d+)\.\s+(.*)$', ln)
-        if not m:
-            ctx.log(
-                "STAGE-5",
-                "REFERENCES-BAD-LINE",
-                f"Invalid reference line: {ln}",
-                fatal=True
-            )
-            return []
-
-        body = m.group(2).strip()
-        # --------------------------------------------------
-        # URL-only reference
-        # --------------------------------------------------
-        if body.startswith("http://") or body.startswith("https://"):
-            url = body
+        ln = ln.strip()
+        if not ln:
+            continue
+        # Check Sentry to route extraction
+        url_match = URL_PATTERN.search(ln)
+        if url_match:
             references.append({
-                "type": "WEB",
-                "url": url
+                "format_type": "URL",
+                "url": url_match.group(1).strip(),
+                "raw": ln
             })
             continue
-
-        # --------------------------------------------------
-        # Print-style reference
-        # --------------------------------------------------
-        n = TEXTBOOK_PATTERN.match(ln)
-
-        if not n:
-            # Grammar should have caught this earlier
-            ctx.log(
-                "STAGE-5",
-                "REFERENCES-EXTRACT-FAILED",
-                f"Unable to extract textbook entry in references section: {ln}",
-                fatal=True
-            )
-            return []
-
-
-        authors_raw = n.group("authors")
-        title = n.group("title").strip()
-        publisher = n.group("publisher").strip()
-        year = int(n.group("year"))
-
-        # Split authors safely (comma-separated)
-        authors = [a.strip() for a in authors_raw.split(",") if a.strip()]
-
-        # Infer standard vs general
-        subtype = "GENERAL"
-        if any(k in authors[0].upper() for k in ("IEEE", "ISO", "IEC", "ITU", "ANSI", "RFC")) \
-           or any(k in publisher.upper() for k in ("IEEE", "ISO", "IEC", "ITU", "ANSI", "RFC")):
-            subtype = "STANDARD"
-
-        references.append({
-            "type": "PRINT",
-            "subtype": subtype,
-            "authors": authors,
-            "title": title,
-            "source": publisher,
-            "year": year
-        })
+        
+        if STANDARD_SENTRY_PATTERN.search(ln):
+            # Using the Standard Gatekeeper Regex we defined earlier
+            m = STANDARD_EXTRACT_PATTERN.match(ln)
+            if m:
+                references.append({
+                    "format_type": "STANDARD",
+                    "code": m.group("code").strip() if "code" in m.groupdict() else "UNKNOWN",
+                    "title": m.group("title").strip() if "title" in m.groupdict() else "UNKNOWN",
+                    "year": m.group("year").strip() if "year" in m.groupdict() else "UNKNOWN"
+                })
+                continue
+        if JOURNAL_SENTRY_PATTERN.search(ln):
+            m = JOURNAL_PATTERN.match(ln)
+            if m:
+                references.append({
+                    "format_type": "JOURNAL",
+                    "authors": m.group("authors").strip(),
+                    "title": m.group("title").strip(),
+                    "journal": m.group("journal").strip(),  # Was 'edition'
+                    "metadata": m.group("metadata").strip(), # Was 'publisher'
+                    "year": m.group("year").strip()
+                })
+                continue        
+        
+        base_data = _extract_single_textbook_data(ln, ctx)
+        
+        # Guard: Only unpack if base_data is a dictionary
+        if isinstance(base_data, dict):
+            is_journal = bool(JOURNAL_SENTRY_PATTERN.search(ln))
+            references.append({
+                **base_data, 
+                "format_type": "JOURNAL" if is_journal else "BOOK"
+            })
+        else:
+            ctx.log("STAGE-5", "REF-EXTRACT-FAIL", f"Failed to parse: {ln}", fatal=False)
 
     ctx.extracted_data["references"] = references
 
@@ -504,7 +513,7 @@ _EXTRACTION_REGISTRY = {
     "course_objectives": _extract_objectives_data,
     "course_outcomes": _extract_outcomes_data,
     "syllabus": _extract_syllabus_data,
-    "textbooks": _extract_textbooks_data, 
+    "textbooks": _extract_textbooks_data,
     "references": _extract_references_data,
 }
 

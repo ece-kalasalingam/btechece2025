@@ -218,10 +218,10 @@ def _validate_syllabus_grammar(content: str, ctx: CourseExecutionContext):
 _GRAMMAR_REGISTRY = {
     "course_description": _validate_description_grammar,
     "course_objectives": _validate_objectives_grammar,
-    "course_outcomes": _validate_outcomes_grammar,
     "syllabus": _validate_syllabus_grammar,
     "textbooks": _validate_textbooks_grammar,
-    "references": _validate_references_grammar 
+    "references": _validate_references_grammar,
+    "course_outcomes": _validate_outcomes_grammar,
 }
 
 def split_math_zones(text: str):
