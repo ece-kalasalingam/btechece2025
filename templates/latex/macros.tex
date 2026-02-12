@@ -2,27 +2,21 @@
 \fancyhf{} % clear all
 
 \fancyhead[C]{%
-  \noindent
-  \begin{minipage}{\textwidth}
-    \centering
-    \begin{tabular}{@{}m{23mm}@{\hspace{2mm}}m{\dimexpr\textwidth-27mm\relax}@{}}
-      % Logo (left)
-      \includegraphics[width=23mm]{kare-logo.png}
-      &
-      % Text (right, vertically centered)
+  \begin{minipage}[c]{\textwidth}
+    \begin{minipage}[c]{25mm}
+      \includegraphics[width=22mm]{kare-logo.png}
+    \end{minipage}% 
+    \hfill
+    \begin{minipage}[c]{\dimexpr\textwidth-30mm\relax} % Uses remaining width
       \centering
-      \textbf{Kalasalingam Academy of Research and Education}\\
-      \small
-      (Deemed to be University)\\
-      Under Sec. 3 of UGC Act 1956\\
-      Anand Nagar, Krishnankoil (Via)\\
-      Virudhunagar (Dt), Tamil Nadu, India – 626 126
-    \end{tabular}
+      {\large\bfseries Kalasalingam Academy of Research and Education}\\[3pt]
+      {\normalsize (Deemed to be University)}\\
+      {\small Under Sec. 3 of UGC Act 1956}\\
+      {\small Anand Nagar, Krishnankoil (Via), }\\
+      {\small Virudhunagar (Dt) – 626126, Tamil Nadu}
+    \end{minipage}
   \end{minipage}
 }
-
-\renewcommand{\headrulewidth}{0pt}
-\setlength{\headheight}{27mm}  % safe for A4 & A5
 
 \newcommand{\CategoryPage}[1]{%
   \clearpage
@@ -89,7 +83,6 @@
   \multicolumn{5}{l|}{{\textbf{Category / Type:} #8}}
   \\ \hline
   \end{tabularx}
-  \par \medskip
 }
 % ----------------------------------------
 % Administrative Meta Table

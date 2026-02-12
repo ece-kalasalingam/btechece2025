@@ -1,5 +1,3 @@
-[% extends base_template %]
-[% block content %]
   [% for cat in category_order %]
     [% if cat in courses %]
 
@@ -34,9 +32,8 @@
               {[[ course.course_meta.c ]]}
               {[[ req_block ]]}
               {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
-
+          [[ layout.meta_spacing ]]
           \BlockHeading{Course Description}
-
           \noindent [[ course.description ]]
 
           \BlockHeading{Course Objectives}
@@ -113,4 +110,3 @@
 
     [% endif %]
   [% endfor %]
-[% endblock %]

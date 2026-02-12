@@ -2,6 +2,8 @@ import os
 import json
 from scripts.paths import get_path
 from jinja2 import Environment, FileSystemLoader
+from scripts.layout_registry import get_layout
+import scripts.layouts_defaults 
 
 from scripts.contracts import (
     OUTPUT_DIR,
@@ -38,13 +40,16 @@ def generate_pdf(view_type="a4"):
     if (not courses_by_category) or courses_by_category_count == 0:
         print("❌ Stage 8: No courses found in the JSON data. Skipping PDF generation.")
         return
-    template = env.get_template(MAIN_LATEX_TEMPLATE_FILE)
+    layout = get_layout(view_type)
+
+    template = env.get_template("base.tex.j2")
 
     rendered_book = template.render(
         courses=courses_by_category,
         category_order=CATEGORY_ORDER,
-        base_template=VIEW_CONFIG[view_type]
+        layout=layout
     )
+
     tex_path = os.path.join(output_syll_dir, f"syllabus_{view_type}.tex")
     with open(tex_path, "w", encoding="utf-8") as f:
         f.write(rendered_book)

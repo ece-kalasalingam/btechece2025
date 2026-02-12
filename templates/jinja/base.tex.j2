@@ -1,0 +1,40 @@
+\documentclass[10pt,[[ layout.paper_option ]],twoside,openany]{book}
+
+\usepackage[
+[[ layout.geometry_options ]]
+]{geometry}
+
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage{microtype}
+\setmainfont{Libertinus Serif}
+\setmathfont{Libertinus Math}
+\allowdisplaybreaks
+\usepackage[hidelinks]{hyperref}
+\usepackage[table]{xcolor}
+\usepackage{ltablex}
+\keepXColumns
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{needspace}
+
+\setlength{\parindent}{0pt}
+
+\setlength{\headheight}{95pt}
+\renewcommand{\arraystretch}{[[ layout.array_stretch ]]}
+
+\input{latex/macros.tex}
+
+\begin{document}
+
+\title{University Course Handbook}
+\author{Generated System}
+\maketitle
+
+[% include "syllabus_body.tex.j2" %]
+
+\end{document}

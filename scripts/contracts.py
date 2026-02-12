@@ -42,8 +42,8 @@ BLOOM_EXPANSION = {
 
 # View Configurations
 VIEW_CONFIG = {
-    "a4": "base_a4.tex.j2",
-    "a5": "base_a5.tex.j2",
+    "a4": "base.tex.j2",
+    "a5": "base.tex.j2",
     "xlsx-courses-list": None,
     "docx-co-bloom": None
 }
