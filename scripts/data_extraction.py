@@ -153,7 +153,7 @@ def _extract_pc_experiments(block: str, ctx: CourseExecutionContext):
             continue
 
         title = m.group(1).strip()
-        hours = 0
+        practical_hours = 0
         cos = []
         description = ""
 
@@ -166,7 +166,7 @@ def _extract_pc_experiments(block: str, ctx: CourseExecutionContext):
 
             h = HOURS_PATTERN.match(sub)
             if h:
-                hours = int(h.group("hours"))
+                practical_hours = int(h.group("hours"))
 
             c = PC_EXPERIMENT_CO_PATTERN.match(sub)
             if c:
@@ -182,7 +182,7 @@ def _extract_pc_experiments(block: str, ctx: CourseExecutionContext):
         exp_id = f"EXP{exp_index:02d}"
         experiments[exp_id] = {
             "title": title,
-            "hours": hours,
+            "practical_hours": practical_hours,
             "cos": cos,
             "description": description,
         }
@@ -383,10 +383,10 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
         experiments = _extract_pc_experiments(block, ctx)
         if experiments is None:
             return
-        total_hours = sum(exp["hours"] for exp in experiments.values())
+        total_hours = sum(exp["practical_hours"] for exp in experiments.values())
 
         #syllabus["experiments"] = experiments
-        syllabus["total_practical_hours"] = total_hours
+        #syllabus["total_practical_hours"] = total_hours
         
         pc_experiments.extend(experiments.values())
         return
