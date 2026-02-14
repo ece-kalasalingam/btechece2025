@@ -1,9 +1,9 @@
-  [% for cat in category_order %]
-    [% if cat in courses %]
-
-      \CategoryPage{[[ cat ]]}
-
-      [% for course in courses[cat] %]
+[% for cat in category_order %]
+  [% if cat.code in courses %]
+    \CategoryPage
+      {[[ cat.full_name ]]}
+      {[[ cat.code ]]}
+    [% for course in courses[cat.code] %]
         [% set pre = course.course_meta.prerequisite | default("") | trim %]
         [% set co  = course.course_meta.corequisite  | default("") | trim %]
         [% set req_block = "" %]
@@ -34,7 +34,7 @@
               {[[ course.course_meta.course_category ]] / [[ course.course_meta.course_type ]]}
           [[ layout.meta_spacing ]]
           \BlockHeading{Course Description}
-          \noindent [[ course.description ]]
+          \par \noindent [[ course.description ]]
 
           \BlockHeading{Course Objectives}
           \begin{itemize}[leftmargin=*, nosep, partopsep=0pt]
@@ -42,21 +42,39 @@
               \item [[ obj ]]
             [% endfor %]
           \end{itemize}
-
           \BlockHeading{Course Outcomes}
           \begin{enumerate}[label=\textbf{CO\arabic*:}, leftmargin=*, nosep, partopsep=0pt]
             [% for co in course.outcomes %]
               \item [[ co.outcome ]]
             [% endfor %]
           \end{enumerate}
-          
+
           \BlockHeading{Syllabus}
           [% if course.syllabus.course_display_type == "UNITIZED-TABLE" %]
             [% include "syllabus_units.tex.j2" %]
-          [% elif course.syllabus.course_display_type == "LABORATORY-TABLE" %]
-            [% include "syllabus_experiments.tex.j2" %]
+            [% elif course.syllabus.course_display_type == "LABORATORY-TABLE" %]
+              \begin{xltabular}{\textwidth}{|c|X|c|c|}
+                \hline
+                \textbf{\#} & \textbf{Experiment Details} & \textbf{Hrs.} & \textbf{CO} \\
+                \hline
+                \endfirsthead
+                \hline
+                \textbf{\#} & \textbf{Experiment Title \& Description} & \textbf{Hrs.} & \textbf{CO} \\
+                \hline
+                \endhead
+                [% for exp in course.syllabus.pc_experiments %]
+                [[ loop.index ]] & 
+                \textbf{[[ exp.title ]]}
+                [%- if exp.description %] \newline {\small [[ exp.description ]]} [% endif %] & 
+                [[ exp.hours ]] & 
+                CO[[ exp.cos | join(", CO") ]] \\
+                \hline
+                [% endfor %]
+              \end{xltabular}
           [% else %]
-            [% include "syllabus_raw.tex.j2" %]
+            [% if course.syllabus.raw_content %]
+              [[ course.syllabus.raw_content[0].latex ]]
+            [% endif %]
           [% endif %]
 
           [% if course.textbooks %]
@@ -72,7 +90,7 @@
               [% endfor %]
             \end{enumerate}
           [% endif %]
-
+          
           [% if course.references %]
           \BlockHeading{Reference(s)}
           \begin{enumerate}[leftmargin=*, nosep, partopsep=0pt]
@@ -84,7 +102,7 @@
 
               [% elif ref.format_type == "STANDARD" %]
                 %% Render as: IEEE 802.11, "Title", 2020.
-                \textbf{[[ ref.code ]]}, \textit{``[[ ref.title ]]''}, [[ ref.year ]].
+                [[ ref.code ]], \textit{``[[ ref.title ]]''}, [[ ref.year ]].
 
               [% elif ref.format_type == "JOURNAL" %]
                 %% Render as: Authors, "Title", Journal Name, Metadata, Year.

@@ -77,6 +77,21 @@ def run_policy_gate(ctx: CourseExecutionContext):
     ]
     for co in ctx.course.outcomes:
         co["outcome"] = capitalize_if_first_char_english(co["outcome"])
+    # Apply capitalization to Unit and Topic titles
+    for unit in ctx.course.syllabus.get("units", []):
+        # Capitalize Unit Title
+        if "unit_title" in unit:
+            unit["unit_title"] = normalize_syllabus_text(unit["unit_title"], is_title=True)
+        
+        # Capitalize Topic Titles within the unit
+        for topic in unit.get("topics", []):
+            if "title" in topic:
+                topic["title"] = capitalize_if_first_char_english(topic["title"])
+
+    # Apply capitalization to PC Experiment titles (for Laboratory courses)
+    for exp in ctx.course.syllabus.get("pc_experiments", []):
+        if "title" in exp:
+            exp["title"] = normalize_syllabus_text(exp["title"], is_title=True)
 
     # 8. To do check the CO count
     co_count = len(ctx.course.outcomes)
@@ -92,15 +107,21 @@ def run_policy_gate(ctx: CourseExecutionContext):
     if not ctx.course or not ctx.course.syllabus:
         return
 
-    content = ctx.course.syllabus.get("content")
-    if not content:
-        return
-
     converter = MarkdownToLatexConverter()
-    latex = converter.convert(content)
-
-    # Store canonical LaTeX only
-    ctx.course.syllabus["content_latex"] = latex
+    raw_list = ctx.course.syllabus.get("raw_content", [])
+    if raw_list:
+        # 1. Reference the specific dictionary inside the list
+        entry = raw_list[0]
+        
+        # 2. Get the content and convert it
+        content = entry.get("content", "No content found")
+        latex = converter.convert(content)
+        
+        # 3. Insert the new key/value pair into the SAME dictionary
+        entry["latex"] = latex
+        
+    else:
+        return
 
     # 9. To do check all the COs are mapped in the syllabus
 

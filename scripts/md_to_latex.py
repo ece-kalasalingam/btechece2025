@@ -56,7 +56,7 @@ class MarkdownToLatexConverter:
         self.close_lists()
 
         col_spec = "|" + "|".join(["X"] * len(headers)) + "|"
-        self.output.append(r"\begin{tabularx}{\textwidth}{" + col_spec + "}")
+        self.output.append(r"\begin{xltabular}{\textwidth}{" + col_spec + "}")
         self.output.append(r"\hline")
 
         self.output.append(
@@ -69,7 +69,7 @@ class MarkdownToLatexConverter:
             self.output.append(" & ".join(processed_cells) + r" \\")
             self.output.append(r"\hline")
 
-        self.output.append(r"\end{tabularx}")
+        self.output.append(r"\end{xltabular}")
         self.output.append(r"\par")
 
     def handle_table(self, lines, start):

@@ -1,20 +1,18 @@
 from scripts.paths import get_path
 import json
-import pandas as pd
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment
+from openpyxl import Workbook
+from openpyxl.worksheet.worksheet import Worksheet
+from typing import cast
+from openpyxl.styles import Alignment, Border, Side, Font
 from openpyxl.utils import get_column_letter
-from openpyxl.styles import Border, Side
+from openpyxl.cell.cell import Cell
 
 from scripts.contracts import (
     OUTPUT_DIR,
-    OUTPUT_JSON_FILE,
-    DESTINATION_DIR
+    ACADEMIC_JSON_FILE,
+    DESTINATION_DIR,
+    CourseCategory
 )
-json_path = get_path(OUTPUT_DIR, OUTPUT_JSON_FILE)
-thin = Side(style="thin")
-full_border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
 def autosize_columns(ws):
     for col_idx, column_cells in enumerate(ws.columns, start=1):
         max_length = 0
@@ -26,64 +24,134 @@ def autosize_columns(ws):
         ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
 def generate_excel_courses_list():
+
+    # ----------------------------
+    # 1. Validate JSON (NO TRY)
+    # ----------------------------
+    json_path = get_path(OUTPUT_DIR, ACADEMIC_JSON_FILE)
+
+    if not json_path.exists():
+        raise FileNotFoundError(
+            f"Stage 8 XLSX: Academic JSON not found at {json_path}"
+        )
+
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    rows = []
+    if "courses" not in data:
+        raise ValueError("Excel Stage: Missing 'courses' key in academic JSON.")
 
-    for category, courses in data.get("courses", {}).items():
-        for course in courses:
-            meta = course.get("course_meta", {})
-            course_code = course.get("course_code", "")
-            course_title = meta.get("course_title", "")
-            course_category = meta.get("course_category", "")
-            course_l = meta.get("l", "")
-            course_t = meta.get("t", "")
-            course_p = meta.get("p", "")
-            course_x = meta.get("x", "")
-            course_c = meta.get("c", "")
-            rows.append({
-                "Course Code": course_code,
-                "Course Title": course_title,
-                "Course Category": course_category,
-                "L": course_l,
-                "T": course_t,
-                "P": course_p,
-                "X": course_x,
-                "C": course_c
-            })
+    courses_by_category = data["courses"]
+
+    if not isinstance(courses_by_category, dict):
+        raise TypeError("Excel Stage: 'courses' must be a dictionary.")
+
+    if not courses_by_category:
+        raise RuntimeError("Excel Stage: 'courses' dictionary is empty.")
+
+    valid_categories = {cat.code for cat in CourseCategory}
+
+    for category in courses_by_category.keys():
+        if category not in valid_categories:
+            raise ValueError(
+                f"Excel Stage: Invalid category '{category}'."
+            )
+
+    # ----------------------------
+    # 2. Excel Generation (TRY)
+    # ----------------------------
     try:
-        df = pd.DataFrame(rows)
-        out_path = get_path(DESTINATION_DIR, "Courses_List.xlsx")
-        df.to_excel(out_path, index=False, engine="openpyxl")
-        wb = load_workbook(out_path)
-        ws = wb.active
-        if ws is None:
-            raise RuntimeError("Workbook has no active worksheet")
-        ws.freeze_panes = "A2"
-        center_align = Alignment(horizontal="center", vertical="center")
+        wb = Workbook()
+        ws_raw = wb.active
+        if ws_raw is None:
+            raise RuntimeError("Workbook has no active worksheet.")
+        ws = cast(Worksheet, ws_raw)
+        ws.title = "Courses"
 
-        # Column headers you want centered
+        headers = [
+            "Course Code",
+            "Course Title",
+            "Course Category",
+            "L",
+            "T",
+            "P",
+            "X",
+            "C"
+        ]
+
+        ws.append(headers)
+        bold_font = Font(bold=True)
+
+        for cell in ws[1]:  # First row
+            c = cast(Cell, cell)
+            c.font = bold_font
+            c.alignment = Alignment(vertical="center")
+
+        total_count = 0
+
+        for cat in CourseCategory:
+            courses = courses_by_category.get(cat.code, [])
+
+            if not isinstance(courses, list):
+                raise TypeError(
+                    f"Excel Stage: Category '{cat.code}' must contain a list."
+                )
+
+            for course in courses:
+
+                if not isinstance(course, dict):
+                    raise TypeError(
+                        f"Excel Stage: Course in '{cat.code}' must be a dictionary."
+                    )
+
+                meta = course.get("course_meta", {})
+                if not isinstance(meta, dict):
+                    raise TypeError(
+                        f"Excel Stage: 'course_meta' must be a dictionary."
+                    )
+
+                course_code = course.get("course_code", "")
+                if not course_code:
+                    raise ValueError(
+                        f"Excel Stage: Course missing 'course_code' in '{cat.code}'."
+                    )
+
+                ws.append([
+                    course_code,
+                    meta.get("course_title", ""),
+                    meta.get("course_category", ""),
+                    int(meta.get("l") or 0),
+                    int(meta.get("t") or 0),
+                    int(meta.get("p") or 0),
+                    int(meta.get("x") or 0),
+                    float(meta.get("c") or 0.0),
+                ])
+
+                total_count += 1
+
+        if total_count == 0:
+            raise RuntimeError(
+                "Excel Stage: Categories exist but contain zero courses."
+            )
+
+        # Formatting
+        ws.freeze_panes = "A2"
+
+        center_align = Alignment(horizontal="center", vertical="center")
+        thin = Side(style="thin")
+        full_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
         center_columns = {"Course Category", "L", "T", "P", "X", "C"}
 
-        # Map header names to column indices
-        header_row = 1
-        for col_idx, cell in enumerate(ws[header_row], start=1):
-            if cell.value in center_columns:
+        for col_idx, header_cell in enumerate(ws[1], start=1):
+            if header_cell.value in center_columns:
                 for row in ws.iter_rows(
-                    min_row=2,
+                    min_row=1,
                     min_col=col_idx,
                     max_col=col_idx
                 ):
                     row[0].alignment = center_align
 
-        for col_idx, column_cells in enumerate(ws.columns, start=1):
-            max_length = 0
-            for cell in column_cells:
-                if cell.value is not None:
-                    max_length = max(max_length, len(str(cell.value)))
-            ws.column_dimensions[get_column_letter(col_idx)].width = max_length + 2
-        
         for row in ws.iter_rows(
             min_row=1,
             max_row=ws.max_row,
@@ -92,8 +160,17 @@ def generate_excel_courses_list():
         ):
             for cell in row:
                 cell.border = full_border
-        
+
+        autosize_columns(ws)
+
+        out_path = get_path(DESTINATION_DIR, "Courses_List.xlsx")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+
         wb.save(out_path)
+
         print(f"✅ Excel file generated: {out_path}")
+
     except Exception as e:
-        print(f"❌ Failed to generate Excel file: {e}")
+        raise RuntimeError(
+            f"Stage 8 XLSX: Excel generation failed: {e}"
+        ) from e

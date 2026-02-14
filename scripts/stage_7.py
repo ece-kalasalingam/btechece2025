@@ -3,8 +3,8 @@ import json
 import os
 import dataclasses
 from typing import List
-from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, OUTPUT_JSON_FILE, ViolationLevel, CHECKPOINTS_DIR, CourseReportRecord, MasterExportData
-from scripts.utils import recursive_escape_latex, validate_course_code
+from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, ACADEMIC_JSON_FILE, ViolationLevel, CHECKPOINTS_DIR, CourseReportRecord, REPORT_JSON_FILE
+from scripts.utils import  validate_course_code
 
 def save_course_checkpoint(ctx: CourseExecutionContext):
     """
@@ -22,7 +22,7 @@ def save_course_checkpoint(ctx: CourseExecutionContext):
     
     if ctx.render_report:
         course_dict["render_report"] = dataclasses.asdict(ctx.render_report)
-    escaped_data = course_dict # recursive_escape_latex(course_dict)
+    escaped_data = course_dict
     
     validate_course_code(ctx.course_code)
     file_path = os.path.join(checkpoint_dir, f"{ctx.course_code}.json")
@@ -41,17 +41,20 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
         print(f"❌ Stage 7: Failed to create directory {OUTPUT_DIR}. Error: {e}")
         return
     
-    master_data = MasterExportData()
+    courses_by_category = {}
+    execution_report = {
+        "warnings": [],
+        "errors": []
+    }
     for rec in report:
         # 1. Fatal errors
         if not rec.is_eligible:
             fatal_v = next((v for v in rec.violations if v.level == ViolationLevel.FATAL), None)
-            master_data.error.append({
+            execution_report["errors"].append({
                 "course_code": rec.course_code,
                 "reason": fatal_v.message if fatal_v else "Unknown Fatal Error"
             })
             continue
-
         # 2. Load checkpoint
         validate_course_code(rec.course_code)
         checkpoint_path = os.path.join(
@@ -66,21 +69,27 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
 
         category = rec.course_category or "UNSPECIFIED"
 
-        if category not in master_data.courses:
-            master_data.courses[category] = []
-
-        master_data.courses[category].append(course_data)
+        if category not in courses_by_category:
+            courses_by_category[category] = []
+        courses_by_category[category].append(course_data)
 
         # 3. Warnings
         warnings = [v.message for v in rec.violations if v.level == ViolationLevel.WARNING]
         if warnings:
-            master_data.warning.append({
+            execution_report["warnings"].append({
                 "course_code": rec.course_code,
                 "warnings": warnings
             })
-
-    # Write to file
-    file_path = os.path.join(OUTPUT_DIR, OUTPUT_JSON_FILE)
+        
+    #Write master data of eligible courses by category
+    file_path = os.path.join(OUTPUT_DIR, ACADEMIC_JSON_FILE)
     with open(file_path, "w", encoding="utf-8") as f:
-        # Convert the object back to a dict for JSON writing
-        json.dump(dataclasses.asdict(master_data), f, indent=4, ensure_ascii=False)
+        json.dump({
+            "courses": courses_by_category,
+            "execution_report": execution_report
+        }, f, indent=4, ensure_ascii=False)
+    
+    # Also save the execution report separately for easy access
+    report_path = os.path.join(OUTPUT_DIR, REPORT_JSON_FILE)
+    with open(report_path, "w", encoding="utf-8") as f:
+        json.dump(execution_report, f, indent=4, ensure_ascii=False)

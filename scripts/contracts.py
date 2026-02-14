@@ -5,12 +5,13 @@ from enum import Enum, auto
 COURSES_DIR = "courses_md"
 INDEX_FILE = "index.md"
 OUTPUT_DIR = "output_generated"
-OUTPUT_JSON_FILE = "master_data.json"
+ACADEMIC_JSON_FILE = "syllabus_data.json"
+REPORT_JSON_FILE = "execution_report.json"
 OUTPUT_SYLL_DIR = "syllabus_files"
 TEMPLATES_DIR = "templates"
 JINJA_TEMPLATES_DIR = "jinja"
 DOCX_TEMPLATES_DIR = "docx"
-MAIN_LATEX_TEMPLATE_FILE = "syllabus_body.tex.j2"
+MAIN_LATEX_TEMPLATE_FILE = "base.tex.j2"
 DESTINATION_DIR = "final_documents"
 CHECKPOINTS_DIR = "checkpoints"
 CO_MIN_COUNT = 3
@@ -51,12 +52,23 @@ VIEW_CONFIG = {
 STRUCTURE_EXEMPT_COURSES = {"ECE002"}
 
 class CourseCategory(Enum):
-    FCM = "FCM"  # Foundation Core
-    PCM = "PCM"  # Programme Core
-    SEM = "SEM"  # Skill Enhancement
-    # Add other categories as per R2025
+    FCM = ("FCM", "Foundation Courses Mandatory")
+    PCM = ("PCM", "Programme Core Mandatory")
+    SEM = ("SEM", "Skill Enhancement Module")
 
-CATEGORY_ORDER = ["FCM", "PCM", "SEM"]  # Define the order of categories in the final pdf
+    def __init__(self, code, full_name):
+        self._code = code
+        self._full_name = full_name
+
+    @property
+    def code(self):
+        return self._code
+
+    @property
+    def full_name(self):
+        return self._full_name
+    
+    # Add other categories as per R2025
 
 class CourseType(Enum):
     TC = "TC"      # Theory Course

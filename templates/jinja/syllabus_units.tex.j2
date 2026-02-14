@@ -1,22 +1,17 @@
-\begin{tabularx}{\textwidth}{|c|X|c|c|}
-
+\begin{xltabular}{\textwidth}{|c|X|c|c|}
   \hline
   \textbf{Unit} & \textbf{Contents} & \textbf{Hrs.} & \textbf{CO} \\
   \hline
   \endfirsthead
-
   \hline
   \textbf{Unit} & \textbf{Contents} & \textbf{Hrs.} & \textbf{CO} \\
   \hline
   \endhead
-
   \hline
 \multicolumn{4}{r}{\textit{Continued on next page}}
 \\
 \endfoot
-
 \endlastfoot
-
   [% for unit in course.syllabus.units %]
     % ---------- Row 1 : Unit header ----------
     \textbf{[[ unit.unit_number ]]} &
@@ -55,5 +50,4 @@
     [% endif %]
     \hline
   [% endfor %]
-
-  \end{tabularx}
+  \end{xltabular}

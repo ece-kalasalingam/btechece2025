@@ -18,11 +18,11 @@
   \end{minipage}
 }
 
-\newcommand{\CategoryPage}[1]{%
+\newcommand{\CategoryPage}[2]{%
   \clearpage
   \vspace*{\fill}
   \phantomsection
-  \pdfbookmark[1]{#1}{category-#1}
+  \pdfbookmark[1]{#2}{category-#2}
   \begin{center}
     {\Huge\bfseries #1}
   \end{center}
@@ -42,7 +42,6 @@
 }
 
 \newcommand{\BlockHeading}[1]{%
-  \needspace{3\baselineskip}
   \addvspace{12pt}%
   \noindent\textbf{#1}%
   \nopagebreak
@@ -51,22 +50,13 @@
 % ----------------------------------------
 % Course Title Block
 % ----------------------------------------
-% \newcommand{\CourseTitle}[2]{%
-%   \begin{center}
-%     \Large\bfseries #1 \Large\bfseries\scshape #2
-%   \end{center}
-% }
 \newcommand{\CourseTitle}[2]{%
   \phantomsection
   \pdfbookmark[2]{#1}{course-#1}
   {\centering
     {\Large\bfseries #1\quad\MakeUppercase{#2}}\par}
+    \vspace{6pt}
 }
-%\newcommand{\CourseTitle}[2]{%
-  %\section*{#1\quad\MakeUppercase{#2}}
-  %\pdfbookmark[2]{#1}{course-#1}
-%}
-
 
 % ----------------------------------------
 % Course Meta Table (3 rows, merged left cell)
@@ -74,7 +64,7 @@
 \newcolumntype{Z}{>{\centering\arraybackslash}p{0.05\textwidth}}
 
 \newcommand{\CourseMetaTable}[8]{%
-  \begin{tabularx}{\textwidth}{|X|Z|Z|Z|Z|Z|}
+  \begin{xltabular}{\textwidth}{|X|Z|Z|Z|Z|Z|}
   \hline
   \multirow{2}{=}{\centering \textbf{#1}} & \textbf{L} & \textbf{T} & \textbf{P} & \textbf{X} & \textbf{C} \\ \cline{2-6}
   & #2 & #3 & #4 & #5 & #6 \\
@@ -82,7 +72,7 @@
   {\raggedright #7} &  
   \multicolumn{5}{l|}{{\textbf{Category / Type:} #8}}
   \\ \hline
-  \end{tabularx}
+  \end{xltabular}
 }
 % ----------------------------------------
 % Administrative Meta Table

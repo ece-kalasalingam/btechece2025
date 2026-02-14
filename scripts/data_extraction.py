@@ -114,7 +114,6 @@ def _extract_activity_items(block: str):
 
     return items
 
-
 def _extract_activity_block(unit_block: str, header_pattern: re.Pattern):
     """
     Extracts hours and activities for Practical / X-Activity blocks.
@@ -139,6 +138,8 @@ def _extract_pc_experiments(block: str, ctx: CourseExecutionContext):
     Extracts PC experiments with auto-incremented EXP IDs.
     Grammar already validated in Stage-4.
     """
+    if ctx is None or ctx.metadata is None:
+        return
     lines = block.splitlines()
     experiments = {}
     i = 0
@@ -185,7 +186,6 @@ def _extract_pc_experiments(block: str, ctx: CourseExecutionContext):
             "cos": cos,
             "description": description,
         }
-
         exp_index += 1
         i = j
 
@@ -294,6 +294,9 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
         return
     syllabus = ctx.extracted_data.setdefault("syllabus", {})
     course_type = ctx.metadata.get("course_type")
+    units = syllabus.setdefault("units", [])
+    pc_experiments = syllabus.setdefault("pc_experiments", [])
+    raw_content = syllabus.setdefault("raw_content", [])
 
     # --------------------------------------------------
     # IC-T / IC-P / TC
@@ -302,9 +305,7 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
         course_type in {"IC-T", "IC-P", "TC"}
         and ctx.course_code not in STRUCTURE_EXEMPT_COURSES
     ):
-        syllabus["course_display_type"] = "UNITIZED-TABLE"
-        units = syllabus.setdefault("units", [])
-
+        syllabus["course_display_type"] = "UNITIZED-TABLE" 
         matches = list(UNIT_HEADING_PATTERN.finditer(content))
 
         for i, m in enumerate(matches):
@@ -380,17 +381,21 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
         block = content[start:start + next_section.start()] if next_section else content[start:]
 
         experiments = _extract_pc_experiments(block, ctx)
+        if experiments is None:
+            return
         total_hours = sum(exp["hours"] for exp in experiments.values())
 
-        syllabus["experiments"] = experiments
+        #syllabus["experiments"] = experiments
         syllabus["total_practical_hours"] = total_hours
+        
+        pc_experiments.extend(experiments.values())
         return
 
     # --------------------------------------------------
     # Exempted courses
     # --------------------------------------------------
     syllabus["course_display_type"] = "RAW"
-    syllabus["content"] = content
+    raw_content.append({"content": content})
 
 def _extract_textbooks_data(content: str, ctx):
     """

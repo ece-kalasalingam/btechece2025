@@ -62,6 +62,7 @@ def is_section_optional(section_key: str, ctx: CourseExecutionContext) -> bool:
 # ------------------------------------------------------------------
 
 def validate_header_format(ctx: CourseExecutionContext, header_text: str) -> None:
+    VALID_CATEGORY_CODES = {e.code for e in CourseCategory}
     for label, pattern_key in MANDATORY_METADATA.items():
         pattern = META_PATTERNS.get(pattern_key)
         match = pattern.search(header_text) if pattern else None
@@ -77,7 +78,7 @@ def validate_header_format(ctx: CourseExecutionContext, header_text: str) -> Non
 
         value = match.group(1).strip()
 
-        if pattern_key == "category" and value not in [e.value for e in CourseCategory]:
+        if pattern_key == "category" and value not in VALID_CATEGORY_CODES:
             ctx.log("STAGE-2A", "INVALID-CATEGORY", f"Invalid category '{value}'.", fatal=True)
 
         if pattern_key == "type" and value not in [e.value for e in CourseType]:
