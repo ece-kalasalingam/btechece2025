@@ -70,8 +70,8 @@
 
         /* Status Border colors */
         .status-SYNCHRONIZED { border-left: 6px solid var(--success); }
-        .status-JUST_GENERATED { border-left: 6px solid var(--info); }
-        .status-OUTDATED_SOURCE { border-left: 6px solid var(--warning); }
+        /*.status-JUST_GENERATED { border-left: 6px solid var(--info); }*/
+        .status-OUTDATED { border-left: 6px solid var(--warning); }
         .status-MISSING { border-left: 6px solid var(--danger); }
 
         .view-header {
@@ -135,13 +135,13 @@
 <div class="container">
     <header>
         <h1>Syllabus Build Dashboard</h1>
-        <p style="color: var(--text-dim)">Jeya prakash, here is your real-time build integrity report.</p>
+        <p style="color: var(--text-dim)">Hi, here is your real-time build integrity report.</p>
     </header>
 
     <div class="stats-summary">
         <div class="stat-card">
-            <span class="stat-value" id="repo-hash">---</span>
-            <span class="stat-label">Git Commit</span>
+            <span class="stat-value" id="json-hash">---</span>
+            <span class="stat-label">Master SHA</span>
         </div>
         <div class="stat-card">
             <span class="stat-value" id="build-time">---</span>
@@ -157,7 +157,7 @@
         </div>
 
     <footer>
-        © 2026 KARE | Department of Electronics and Communication Engineering
+        © KARE | Department of Electronics and Communication Engineering
     </footer>
 </div>
 
@@ -168,25 +168,23 @@ async function refreshDashboard() {
         const data = await response.json();
 
         // Update Header Stats
-        document.getElementById('repo-hash').innerText = data.current_commit;
-        document.getElementById('build-time').innerText = new Date(data.generated_at).toLocaleTimeString();
+        source_sha = String(data.global_source_sha || '---');
+        git_hash = String(data.global_git_hash || '---');   
+        document.getElementById('json-hash').innerText = source_sha.trim().substring(0, 7);
+        document.getElementById('build-time').innerText = new Date(data.last_audit).toLocaleString();
         
-        const readyCount = data.views.filter(v => v.sync_status === "SYNCHRONIZED" || v.sync_status === "JUST_GENERATED").length;
+        const readyCount = data.views.filter(v => v.status === "SYNCHRONIZED").length;
         document.getElementById('file-ratio').innerText = `${readyCount} / ${data.views.length}`;
 
         let html = "";
         data.views.forEach(view => {
-            let statusClass = "status-" + view.sync_status;
+            let statusClass = "status-" + view.status;
             let badgeClass = "badge-danger";
-            let friendlyStatus = view.sync_status.replace(/_/g, " ");
+            let friendlyStatus = view.status.replace(/_/g, " ");
 
             // Logic to determine badge color
-            if (view.sync_status === "SYNCHRONIZED") badgeClass = "badge-success";
-            else if (view.sync_status === "JUST_GENERATED") {
-                badgeClass = "badge-info";
-                friendlyStatus = "LOCAL FRESH";
-            }
-            else if (view.sync_status === "OUTDATED_SOURCE") badgeClass = "badge-warning";
+            if (view.status === "SYNCHRONIZED") badgeClass = "badge-success";
+            else if (view.status === "OUTDATED") badgeClass = "badge-warning";
 
             html += `
                 <div class="view-card ${statusClass}">
@@ -197,12 +195,8 @@ async function refreshDashboard() {
 
                     <div class="hash-group">
                         <div class="hash-row">
-                            <span class="hash-label">Live Hash:</span>
-                            <span>${view.live_hash ? view.live_hash.substring(0,8) : '--------'}</span>
-                        </div>
-                        <div class="hash-row">
-                            <span class="hash-label">Git Hash:</span>
-                            <span>${view.last_commit_hash ? view.last_commit_hash.substring(0,8) : '--------'}</span>
+                            <span class="hash-label">Master SHA:</span>
+                            <span>${view.built_with_sha ? view.built_with_sha.trim().substring(0,7) : '--------'}</span>
                         </div>
                     </div>
 
@@ -211,8 +205,8 @@ async function refreshDashboard() {
                         ${view.last_modified ? new Date(view.last_modified).toLocaleString() : 'N/A'}
                     </div>
 
-                    ${view.status === "GENERATED" ? 
-                        `<a href="../${view.file}" class="download-link" target="_blank">View Document</a>` :
+                    ${view.status === "SYNCHRONIZED" ? 
+                        `<a href="../${view.relative_path}" class="download-link" target="_blank">View Document</a>` :
                         `<a href="#" class="download-link disabled-link">Build Missing</a>`
                     }
                 </div>
@@ -222,7 +216,7 @@ async function refreshDashboard() {
         document.getElementById('view-grid').innerHTML = html;
 
     } catch (e) {
-        document.getElementById('view-grid').innerHTML = `<p style="color: var(--danger)">Dashboard data not found. Run main.py first.</p>`;
+        document.getElementById('view-grid').innerHTML = `<p style="color: var(--danger)">Dashboard data not found. Run pipeline first.</p>`;
     }
 }
 

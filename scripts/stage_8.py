@@ -1,8 +1,12 @@
 from scripts.stage_8_xlsx import generate_excel_courses_list
 from scripts.stage_8_docx import generate_word_co_bloom
 from scripts.stage_8_pdf import generate_pdf
+from scripts.paths import get_path
+import json
 
 from scripts.contracts import (
+    DASHBOARD_DIR,
+    DASHBOARD_JSON_FILE,
     VIEW_CONFIG
 )
 from scripts.utils import validate_environment_for_view
@@ -29,3 +33,20 @@ def run_book_generation(view_type="a4"):
         if not handler:
             raise ValueError(f"No handler for view: {view_type}")
         handler(view_type=view_type)
+
+    manifest_path = get_path(DASHBOARD_DIR, DASHBOARD_JSON_FILE)
+    if not manifest_path.exists(): return
+
+    with open(manifest_path, 'r', encoding="utf-8") as f:
+        data = json.load(f)
+        
+    target_sha = data.get("global_source_sha")
+    
+    # Update the matching view in the 'views' list
+    for view in data.get("views", []):
+        if view["view"] == view_type:
+            view["built_with_sha"] = target_sha
+            break
+            
+    with open(manifest_path, 'w', encoding="utf-8") as f:
+        json.dump(data, f, indent=4)

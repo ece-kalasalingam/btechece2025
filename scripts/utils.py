@@ -1,3 +1,4 @@
+import hashlib
 import re
 import shutil
 import sys
@@ -373,3 +374,13 @@ def validate_environment_for_view(view_name: str) -> bool:
                 "but was not found in the system PATH."
             )
     return True
+def get_file_sha256(file_path: Path):
+    """Calculates the SHA-256 hash of a file's content."""
+    sha256_hash = hashlib.sha256()
+    try:
+        with open(file_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+    except FileNotFoundError:
+        return None

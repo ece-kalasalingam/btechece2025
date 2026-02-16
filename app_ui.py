@@ -1,110 +1,208 @@
 import streamlit as st
-import os
+import subprocess
 import json
-import pandas as pd
+import os
+import sys
+import time
+from scripts.paths import get_path
+from scripts.contracts import DASHBOARD_DIR, DASHBOARD_JSON_FILE, VIEW_CONFIG
 
-# Stage Imports from your verified structure
-from run_pipeline import run_full_pipeline
-from obsolete2.stage_6c_audit_dashboard import generate_dept_dashboard
-from obsolete2.stage_6a_render_docs import render_syllabus
+# =========================================================
+# 1. PAGE CONFIG
+# =========================================================
+st.set_page_config(
+    page_title="KARE Syllabus Command Center",
+    page_icon="🛠️",
+    layout="wide"
+)
 
-# --- CONFIGURATION ---
-st.set_page_config(page_title="R2025 Syllabus Auditor", layout="wide")
-INPUT_DIR = "syllabi_input"
-OUTPUT_DIR = "output_verified"
-RENDERED_DIR = "rendered_syllabi"
+# Container for execution logs (appears at the top of the main area)
+output_container = st.container()
 
-# Defensive: Ensure all required directories exist immediately
-for folder in [INPUT_DIR, OUTPUT_DIR, RENDERED_DIR]:
-    os.makedirs(folder, exist_ok=True)
+# =========================================================
+# 2. SESSION STATE MAPPING
+# =========================================================
+if "is_running" not in st.session_state:
+    st.session_state.is_running = False
 
-# --- HEADER ---
-st.title("🎓 R2025 Syllabus Engineering Pipeline")
-st.markdown("---")
+if "pending_command" not in st.session_state:
+    st.session_state.pending_command = None
 
-# --- SIDEBAR: Control Panel ---
-st.sidebar.header("🚀 Control Panel")
+if "run_state" not in st.session_state:
+    st.session_state.run_state = "IDLE"  # IDLE | ARMED | RUNNING
 
-# Get list of markdown files for the UI
-input_files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".md")]
 
-if st.sidebar.button("Run Full Audit Pipeline"):
-    if not input_files:
-        st.sidebar.error(f"No .md files found in /{INPUT_DIR}. Add files to proceed.")
-    else:
-        with st.spinner("Executing Pipeline Stages 1-6..."):
-            try:
-                # 1. Run Core Pipeline (1-5)
-                for file in input_files:
-                    run_full_pipeline(os.path.join(INPUT_DIR, file))
-                
-                # 2. Run Dashboard Aggregation (6c)
-                generate_dept_dashboard()
-                
-                # 3. Pre-render HTML files (6a)
-                for json_file in os.listdir(OUTPUT_DIR):
-                    if json_file.endswith(".json"):
-                        render_syllabus(os.path.join(OUTPUT_DIR, json_file), output_dir=RENDERED_DIR)
-                
-                st.sidebar.success("Pipeline Completed Successfully!")
-                st.rerun() # Refresh the dashboard view
-            except Exception as e:
-                st.sidebar.error(f"Pipeline Failed: {e}")
+# =========================================================
+# 3. VISUAL SIDEBAR LOCK (CSS LEVEL)
+# =========================================================
+if st.session_state.is_running:
+    st.markdown(
+        """
+        <style>
+        section[data-testid="stSidebar"] {
+            pointer-events: none;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-# --- MAIN AREA: Dashboard ---
-st.header("📊 Department Audit Overview")
 
-# Check if we have data to show
-if os.path.exists(OUTPUT_DIR) and any(f.endswith('.json') for f in os.listdir(OUTPUT_DIR)):
-    summary_data = []
-    for file in os.listdir(OUTPUT_DIR):
-        if file.endswith(".json"):
-            with open(os.path.join(OUTPUT_DIR, file), "r", encoding="utf-8") as f:
-                data = json.load(f)
-                # Safely extract nested data for the table
-                meta = data.get("syllabus_data", {}).get("metadata", {})
-                summary_data.append({
-                    "Course Code": data.get("course_code", "N/A"),
-                    "Course Title": meta.get("course_title", "N/A"),
-                    "Credits": meta.get("c", 0),
-                    "Status": data.get("audit_meta", {}).get("status", "Unknown")
-                })
-    
-    # Display as a searchable dataframe
-    df = pd.DataFrame(summary_data)
-    st.dataframe(df, use_container_width=True, hide_index=True)
-else:
-    st.info(f"📂 No verified data found. Place your .md files in **{INPUT_DIR}** and click 'Run' to begin.")
+# =========================================================
+# 4. COMMAND EXECUTION ENGINE
+# =========================================================
+def run_command(command_args, container):
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
 
-st.markdown("---")
+    # Ensure we use the same Python interpreter
+    full_cmd = f'"{sys.executable}" {command_args}'
 
-# --- DOWNLOAD SECTION ---
-st.header("📥 Export Verified Syllabi")
-
-verified_files = [f.replace(".json", "") for f in os.listdir(OUTPUT_DIR) if f.endswith(".json")]
-
-if verified_files:
-    col1, col2 = st.columns([2, 1])
-    with col1:
-        selected_course = st.selectbox("Select a course to download:", verified_files)
-    
-    with col2:
-        # Construct the HTML path generated by Stage 6a
-        html_path = os.path.join(RENDERED_DIR, f"{selected_course}_verified.html")
-        
-        if os.path.exists(html_path):
-            with open(html_path, "r", encoding="utf-8") as f:
-                html_bytes = f.read()
-            
-            st.write(" ") # Padding
-            st.download_button(
-                label="Download HTML / PDF",
-                data=html_bytes,
-                file_name=f"{selected_course}_R2025.html",
-                mime="text/html",
-                use_container_width=True
+    with container:
+        st.info(f"🚀 Executing: `{command_args}`")
+        with st.spinner("Pipeline in progress..."):
+            result = subprocess.run(
+                full_cmd,
+                shell=True,
+                capture_output=True,
+                encoding="utf-8",
+                text=True,
+                env=env,
+                cwd=os.getcwd()
             )
+
+        if result.returncode == 0:
+            st.success("✅ Build Successful")
+            if result.stdout:
+                with st.expander("Show Detailed Console Output"):
+                    st.code(result.stdout)
+            return True
         else:
-            st.warning("Rendered file missing. Run pipeline again.")
+            st.error("❌ Build Failed")
+            st.code(result.stderr)
+            return False
+
+
+# =========================================================
+# 5. DATA MANAGEMENT
+# =========================================================
+manifest_path = get_path(DASHBOARD_DIR, DASHBOARD_JSON_FILE)
+master_sha = "None"
+data = {"views": []}
+
+if manifest_path.exists():
+    try:
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            master_sha = data.get("global_source_sha", "None")
+    except Exception as e:
+        st.error(f"Manifest load error: {e}")
+
+
+# =========================================================
+# 6. SIDEBAR UI
+# =========================================================
+st.sidebar.title("🛠 Control Panel")
+
+if st.session_state.is_running:
+    st.sidebar.warning("⚙️ System Locked: Build Active")
+
+display_sha = master_sha[:7] if master_sha != "None" else "MISSING"
+st.sidebar.info(f"**Master SHA:** `{display_sha}`")
+st.sidebar.divider()
+
+# Master Data Buttons
+if master_sha == "None":
+    st.sidebar.warning("Data not initialized")
+    if st.sidebar.button("🚀 Initialize Project", use_container_width=True, disabled=st.session_state.is_running):
+        st.session_state.is_running = True
+        st.session_state.pending_command = "driver.py --view=none"
+        st.session_state.run_state = "ARMED"
+        st.rerun()
 else:
-    st.caption("Verified exports will appear here after a successful run.")
+    st.sidebar.success("Data Initialized")
+    if st.sidebar.button("🔄 Refresh Master Data", use_container_width=True, disabled=st.session_state.is_running):
+        st.session_state.is_running = True
+        st.session_state.pending_command = "driver.py --view=none"
+        st.session_state.run_state = "ARMED"
+        st.rerun()
+    st.sidebar.divider()
+    st.sidebar.subheader("📄 Generate Views")
+    # View-Specific Buttons
+    for view_key in VIEW_CONFIG.keys():
+        if st.sidebar.button(f"Build {view_key.upper()}", key=f"btn_{view_key}", use_container_width=True, disabled=st.session_state.is_running):
+            st.session_state.is_running = True
+            st.session_state.pending_command = f"driver.py --view={view_key}"
+            st.session_state.run_state = "ARMED"
+            st.rerun()
+
+
+
+if st.session_state.is_running:
+    if st.sidebar.button("🔓 Emergency Unlock"):
+        st.session_state.is_running = False
+        st.session_state.run_state = "IDLE"
+        st.rerun()
+
+# =========================================================
+# 7. MAIN AREA DASHBOARD
+# =========================================================
+st.title("Syllabus Build Dashboard")
+st.write(f"Hi, monitor your builds below.")
+
+if manifest_path.exists():
+    st.subheader("Current Build Status")
+    
+    # Table Header
+    h1, h2, h3 = st.columns([1, 2, 1])
+    h1.caption("DOCUMENT VIEW")
+    h2.caption("INTEGRITY STATUS")
+    h3.caption("LAST AUDIT")
+    st.divider()
+
+    for view in data.get("views", []):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            st.markdown(f"**{view['view'].upper()}**")
+        with col2:
+            status = view["status"]
+            if status == "SYNCHRONIZED":
+                st.success("Synchronized")
+            elif status == "OUTDATED":
+                st.warning("Outdated")
+            else:
+                st.error("Missing File")
+        with col3:
+            st.text(view.get("last_modified", "N/A"))
+else:
+    st.info("Dashboard data not found. Use the sidebar to initialize.")
+
+# =========================================================
+# 8. THE ENGINE (2-STEP EXECUTION)
+# =========================================================
+if st.session_state.is_running and st.session_state.pending_command:
+
+    # Step 1: Armed -> Running (Reruns to paint the 'Locked' UI)
+    if st.session_state.run_state == "ARMED":
+        st.session_state.run_state = "RUNNING"
+        st.rerun()
+
+    # Step 2: Running -> Idle (Blocking execution)
+    if st.session_state.run_state == "RUNNING":
+        success = run_command(st.session_state.pending_command, output_container)
+
+        if success:
+            with output_container:
+                st.toast("Syncing filesystem...")
+                time.sleep(3)
+
+        # Reset states
+        st.session_state.is_running = False
+        st.session_state.pending_command = None
+        st.session_state.run_state = "IDLE"
+        st.rerun()
+
+st.divider()
+st.caption("© 2026 KARE | Department of Electronics and Communication Engineering")

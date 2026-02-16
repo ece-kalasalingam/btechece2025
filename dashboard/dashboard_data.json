@@ -1,49 +1,46 @@
 {
-    "generated_at": "2026-02-16T01:16:06.362318Z",
-    "current_commit": "01e3ce6",
+    "global_source_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
     "views": [
         {
             "view": "a4",
-            "status": "GENERATED",
-            "file": "syllabus_books/KARE_Syllabus_a4.pdf",
-            "version": "1",
-            "stale": true,
-            "sync_status": "OUTDATED_SOURCE",
-            "live_hash": "655efdc",
-            "last_commit_hash": "c10ae05",
-            "last_modified": "2026-02-15T13:21:53.672646+00:00"
+            "filename": "KARE_Syllabus_a4.pdf",
+            "relative_path": "syllabus_books/KARE_Syllabus_a4.pdf",
+            "exists": true,
+            "size": "201.9 KB",
+            "last_modified": "2026-02-16 15:38",
+            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "status": "SYNCHRONIZED"
         },
         {
             "view": "a5",
-            "status": "NOT_GENERATED",
-            "file": null,
-            "version": "N/A",
-            "stale": true,
-            "sync_status": "MISSING",
-            "live_hash": "N/A",
-            "last_commit_hash": "N/A"
+            "filename": "KARE_Syllabus_a5.pdf",
+            "relative_path": "syllabus_books/KARE_Syllabus_a5.pdf",
+            "exists": true,
+            "size": "205.6 KB",
+            "last_modified": "2026-02-16 15:39",
+            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "status": "SYNCHRONIZED"
         },
         {
             "view": "courses-list",
-            "status": "GENERATED",
-            "file": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
-            "version": "3",
-            "stale": false,
-            "sync_status": "LOCAL_BUILD_VALID",
-            "live_hash": "97f5268",
-            "last_commit_hash": "2e752f6",
-            "last_modified": "2026-02-16T01:02:55.098546+00:00"
+            "filename": "KARE_Syllabus_courses-list.xlsx",
+            "relative_path": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
+            "exists": true,
+            "size": "5.2 KB",
+            "last_modified": "2026-02-16 15:39",
+            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "status": "SYNCHRONIZED"
         },
         {
             "view": "co-bloom",
-            "status": "GENERATED",
-            "file": "syllabus_books/KARE_SYLLABUS_co-bloom.docx",
-            "version": "1",
-            "stale": true,
-            "sync_status": "OUTDATED_SOURCE",
-            "live_hash": "7987dc7",
-            "last_commit_hash": "c10ae05",
-            "last_modified": "2026-02-15T19:15:14.339811+00:00"
+            "filename": "KARE_Syllabus_co-bloom.docx",
+            "relative_path": "syllabus_books/KARE_SYLLABUS_co-bloom.docx",
+            "exists": true,
+            "size": "13.9 KB",
+            "last_modified": "2026-02-16 15:39",
+            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "status": "SYNCHRONIZED"
         }
-    ]
+    ],
+    "last_audit": "2026-02-16 15:39:44"
 }

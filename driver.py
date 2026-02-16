@@ -17,18 +17,14 @@ def run_pipeline():
     # --- NEW LOGIC FOR STAGE 9 ONLY ---
     # If the script is run without any command-line arguments
     if len(sys.argv) == 1:
-        print("🔍 No arguments provided. Running Health Audit (Stage 9) only...")
-        try:
-            stage_9.build_dashboard_data()
-            print("\n--- Audit Complete ---")
-        except Exception as e:
-            print(f"❌ Audit Failed: {e}")
-        return # Exit the function early
+        print("⚠️  No command-line arguments provided. Defaulting to 'none' to run stage 0- 7.")
+        sys.argv.append("--view")
+        sys.argv.append("none")
     # ----------------------------------
     available_views = list(VIEW_CONFIG.keys())
     if not available_views:
         raise ValueError("VIEW_CONFIG in contracts.py is empty!")
-    cli_choices = available_views + ["all"]
+    cli_choices = available_views + ["all", "none"]
     parser = argparse.ArgumentParser(description="Syllabus Generator", exit_on_error=False)
     parser.add_argument(
         "--view", 
@@ -42,171 +38,176 @@ def run_pipeline():
         print(f"[CLI ERROR] {e}")
         sys.exit(1)
     
-    if args.view == "all":
+    if args.view == "none":
+        views_to_process = []
+    elif args.view == "all":
         views_to_process = available_views
     else:
         views_to_process = [args.view]
 
-    # 1. Load all courses using stage_0 (uses index.md and courses_md/ folder)
-    # This calls stage_0.ingest internally to normalize text
-    #raw_inputs = stage_0.load_all_courses()
-    
-    master_report = []
-    seen_codes = set()
+    if not views_to_process:
+        print("⚠️  No views selected. Only running stages 0-7.")
+        # 1. Load all courses using stage_0 (uses index.md and courses_md/ folder)
+        # This calls stage_0.ingest internally to normalize text
+        #raw_inputs = stage_0.load_all_courses()
+        
+        master_report = []
+        seen_codes = set()
 
-    #for idx, (code, raw_text) in enumerate(raw_inputs.items()):
-    for idx, (code, raw_text, error) in enumerate(stage_0.iter_courses()):
-        # 2. Initialize Context
-        ctx = CourseExecutionContext(course_code=code, source_index=idx)
-        if error is not None:
-            ctx.log(
-                stage="STAGE-0",
-                code="COURSE-INGEST-FAILED",
-                msg=error,
-                fatal=True
-            )
-            master_report.append(ctx)
-            continue
-        assert raw_text is not None
-        try:
-            if code in seen_codes:
+        #for idx, (code, raw_text) in enumerate(raw_inputs.items()):
+        for idx, (code, raw_text, error) in enumerate(stage_0.iter_courses()):
+            # 2. Initialize Context
+            ctx = CourseExecutionContext(course_code=code, source_index=idx)
+            if error is not None:
                 ctx.log(
                     stage="STAGE-0",
-                    code="DUPLICATE-FILE",
-                    msg=f"The course code '{code}' has already been processed in this batch.",
+                    code="COURSE-INGEST-FAILED",
+                    msg=error,
                     fatal=True
                 )
                 master_report.append(ctx)
-                print(f"❌ {code}: Failed - Duplicate entry in index.")
                 continue
-            
-            # 3. STAGE 1: Structural Validation & Partitioning
-            # Requires two arguments: (raw_text, ctx)
-            stage_1.run_structure_parse(raw_text, ctx)
-            
-            # 4. STAGE 2: Format Gate (Mandatory Header check & Section check)
-            # Function name in your file is run_format_gate, not run_validation_gate
-            if ctx.is_eligible:
-                stage_2.run_format_gate(ctx)
+            assert raw_text is not None
+            try:
+                if code in seen_codes:
+                    ctx.log(
+                        stage="STAGE-0",
+                        code="DUPLICATE-FILE",
+                        msg=f"The course code '{code}' has already been processed in this batch.",
+                        fatal=True
+                    )
+                    master_report.append(ctx)
+                    print(f"❌ {code}: Failed - Duplicate entry in index.")
+                    continue
                 
-            # 5. STAGE 3: Metadata Extraction
-            # Extracts title, category, type, and LTPXC into ctx.metadata
-            if ctx.is_eligible:
-                stage_3.run_metadata_extraction(ctx)
+                # 3. STAGE 1: Structural Validation & Partitioning
+                # Requires two arguments: (raw_text, ctx)
+                stage_1.run_structure_parse(raw_text, ctx)
+                
+                # 4. STAGE 2: Format Gate (Mandatory Header check & Section check)
+                # Function name in your file is run_format_gate, not run_validation_gate
+                if ctx.is_eligible:
+                    stage_2.run_format_gate(ctx)
+                    
+                # 5. STAGE 3: Metadata Extraction
+                # Extracts title, category, type, and LTPXC into ctx.metadata
+                if ctx.is_eligible:
+                    stage_3.run_metadata_extraction(ctx)
 
-            # 6.  STAGE 4: Body Grammar Gate
-            # Validates grammar in sections as per contracts.py
-            if ctx.is_eligible:
-                stage_4.process_body_logic(ctx)
-            
-            # 7.  STAGE 5: Structural Assembly
-            # Group metadata into CourseMeta and creates CanonicalCourse object
-            if ctx.is_eligible:
-                stage_5.run_stage_5(ctx)
+                # 6.  STAGE 4: Body Grammar Gate
+                # Validates grammar in sections as per contracts.py
+                if ctx.is_eligible:
+                    stage_4.process_body_logic(ctx)
+                
+                # 7.  STAGE 5: Structural Assembly
+                # Group metadata into CourseMeta and creates CanonicalCourse object
+                if ctx.is_eligible:
+                    stage_5.run_stage_5(ctx)
 
-            actual_code = ctx.course_code if ctx.course else None
-            # Check for conflicting course codes   
-            if actual_code and actual_code in seen_codes:
+                actual_code = ctx.course_code if ctx.course else None
+                # Check for conflicting course codes   
+                if actual_code and actual_code in seen_codes:
+                    ctx.log(
+                        stage="STAGE-4",
+                        code="CONFLICTING-CODE",
+                        msg=f"Internal course code '{actual_code}' is already used by another file.",
+                        fatal=True
+                    )
+                else:
+                    # If unique, we register it
+                    seen_codes.add(actual_code if actual_code else code)
+
+                # 8. STAGE 6: Policy & Normalization
+                # Validates credit math and applies Title Case to course_title
+                if ctx.is_eligible:
+                    stage_6.run_policy_gate(ctx)
+
+                if ctx.is_eligible:
+                    stage_7.save_course_checkpoint(ctx)
+            except Exception as e:
+                # CAPTURE SYSTEM CRASHES
+                # We log the actual Python error message and a snippet of the traceback
+                print("❌ UNHANDLED EXCEPTION")
+                traceback.print_exc()
                 ctx.log(
-                    stage="STAGE-4",
-                    code="CONFLICTING-CODE",
-                    msg=f"Internal course code '{actual_code}' is already used by another file.",
+                    stage="SYSTEM",
+                    code="UNHANDLED-EXCEPTION",
+                    msg=f"Internal Engine Error: Please check system logs for details.",
                     fatal=True
                 )
-            else:
-                # If unique, we register it
-                seen_codes.add(actual_code if actual_code else code)
-
-            # 8. STAGE 6: Policy & Normalization
-            # Validates credit math and applies Title Case to course_title
-            if ctx.is_eligible:
-                stage_6.run_policy_gate(ctx)
-
-            if ctx.is_eligible:
-                stage_7.save_course_checkpoint(ctx)
-        except Exception as e:
-            # CAPTURE SYSTEM CRASHES
-            # We log the actual Python error message and a snippet of the traceback
-            print("❌ UNHANDLED EXCEPTION")
-            traceback.print_exc()
-            ctx.log(
-                stage="SYSTEM",
-                code="UNHANDLED-EXCEPTION",
-                msg=f"Internal Engine Error: Please check system logs for details.",
-                fatal=True
-            )
-        
-        # Display render report (Stage-5 diagnostics), if any
-        if ctx.render_report:
-            print(f"🧾 {ctx.course_code}: Render diagnostics found")
-            if ctx.render_report.math_unbalanced_lines:
-                print("   └─ Unbalanced math at lines:",
-                    [ln for ln, _ in ctx.render_report.math_unbalanced_lines])
-
-            if ctx.render_report.latex_special_char_lines:
-                print("   └─ LaTeX special characters at lines:",
-                    [ln for ln, _, _ in ctx.render_report.latex_special_char_lines])
-
-            if ctx.render_report.long_line_risk:
-                print("   └─ Overfull line risk at lines:",
-                    [ln for ln, _ in ctx.render_report.long_line_risk])
-
-            if ctx.render_report.tables:
-                print("   └─ Tables detected:",
-                    len(ctx.render_report.tables))
-
-        # Final Logging
-        warnings = [v for v in ctx.violations if v.level == ViolationLevel.WARNING]
-        fatals   = [v for v in ctx.violations if v.level == ViolationLevel.FATAL]
-
-        if ctx.is_eligible and ctx.course:
-            final_title = ctx.course.course_meta.course_title
-
-            if warnings:
-                print(f"⚠️ {ctx.course_code}: Processed with warnings. Title: {final_title}")
-                for w in warnings:
-                    print(f"   └─ [WARNING] {w.stage} :: {w.code} :: {w.message}")
-            else:
-                print(f"✅ {ctx.course_code}: Processed successfully. Title: {final_title}")
-
-        else:
-            # Report the FIRST fatal violation (root cause)
-            fatal = fatals[0] if fatals else None
-
-            if fatal:
-                print(
-                    f"❌ {ctx.course_code}: {fatal.code} - Failed at {fatal.stage} - {fatal.message}"
-                )
-            else:
-                print(f"❌ {ctx.course_code}: Failed due to unknown error.")
             
-        course_title = None
-        course_category = None
-        if ctx.course and ctx.course.course_meta:
-            course_title = ctx.course.course_meta.course_title
-            course_category = ctx.course.course_meta.course_category    
-        master_report.append(
-            CourseReportRecord(
-                course_code=ctx.course_code,
-                course_title=course_title,
-                course_category=course_category,
-                is_eligible=ctx.is_eligible,
-                violations=ctx.violations
+            # Display render report (Stage-5 diagnostics), if any
+            if ctx.render_report:
+                print(f"🧾 {ctx.course_code}: Render diagnostics found")
+                if ctx.render_report.math_unbalanced_lines:
+                    print("   └─ Unbalanced math at lines:",
+                        [ln for ln, _ in ctx.render_report.math_unbalanced_lines])
+
+                if ctx.render_report.latex_special_char_lines:
+                    print("   └─ LaTeX special characters at lines:",
+                        [ln for ln, _, _ in ctx.render_report.latex_special_char_lines])
+
+                if ctx.render_report.long_line_risk:
+                    print("   └─ Overfull line risk at lines:",
+                        [ln for ln, _ in ctx.render_report.long_line_risk])
+
+                if ctx.render_report.tables:
+                    print("   └─ Tables detected:",
+                        len(ctx.render_report.tables))
+
+            # Final Logging
+            warnings = [v for v in ctx.violations if v.level == ViolationLevel.WARNING]
+            fatals   = [v for v in ctx.violations if v.level == ViolationLevel.FATAL]
+
+            if ctx.is_eligible and ctx.course:
+                final_title = ctx.course.course_meta.course_title
+
+                if warnings:
+                    print(f"⚠️ {ctx.course_code}: Processed with warnings. Title: {final_title}")
+                    for w in warnings:
+                        print(f"   └─ [WARNING] {w.stage} :: {w.code} :: {w.message}")
+                else:
+                    print(f"✅ {ctx.course_code}: Processed successfully. Title: {final_title}")
+
+            else:
+                # Report the FIRST fatal violation (root cause)
+                fatal = fatals[0] if fatals else None
+
+                if fatal:
+                    print(
+                        f"❌ {ctx.course_code}: {fatal.code} - Failed at {fatal.stage} - {fatal.message}"
+                    )
+                else:
+                    print(f"❌ {ctx.course_code}: Failed due to unknown error.")
+                
+            course_title = None
+            course_category = None
+            if ctx.course and ctx.course.course_meta:
+                course_title = ctx.course.course_meta.course_title
+                course_category = ctx.course.course_meta.course_category    
+            master_report.append(
+                CourseReportRecord(
+                    course_code=ctx.course_code,
+                    course_title=course_title,
+                    course_category=course_category,
+                    is_eligible=ctx.is_eligible,
+                    violations=ctx.violations
+                )
             )
-        )
-        #master_report.append(ctx)
-    stage_7.export_master_data(master_report)
-    for v in views_to_process:
-        try:
-            stage_8.run_book_generation(view_type=v)
-        except Exception as e:
-            print(f"\n❌ Pipeline Failed at Stage-8 for view '{v}'")
-            print(f"Reason: {e}")
-            print("\n--- Pipeline Aborted ---")
-            return
+            #master_report.append(ctx)
+        stage_7.export_master_data(master_report)
+        print(f"\n--- Pipeline Complete. Processed {len(master_report)} courses. ---")
+    else:
+        for v in views_to_process:
+            try:
+                stage_8.run_book_generation(view_type=v)
+                print(f"\n--- Pipeline Complete. Generated {len(views_to_process)} views. ---")
+            except Exception as e:
+                print(f"\n❌ Pipeline Failed at Stage-8 for view '{v}'")
+                print(f"Reason: {e}")
+                print("\n--- Pipeline Aborted ---")
+                return
     stage_9.build_dashboard_data()
-    
-    print(f"\n--- Pipeline Complete. Processed {len(master_report)} courses. ---")
     
 if __name__ == "__main__":
     run_pipeline()

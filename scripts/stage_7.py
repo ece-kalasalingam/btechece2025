@@ -3,8 +3,15 @@ import json
 import os
 import dataclasses
 from typing import List
-from scripts.contracts import CourseCategory, CourseExecutionContext, TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE, ViolationLevel, CHECKPOINTS_DIR, CourseReportRecord, REPORT_JSON_FILE
-from scripts.utils import  validate_course_code
+from scripts.contracts import (
+    DASHBOARD_JSON_FILE, CourseCategory, 
+    CourseExecutionContext, TEMP_OUTPUT_DIR, 
+    ACADEMIC_JSON_FILE, ViolationLevel, 
+    CHECKPOINTS_DIR, CourseReportRecord, 
+    REPORT_JSON_FILE, DASHBOARD_DIR
+)
+from scripts.utils import  validate_course_code, get_file_sha256
+from scripts.paths import get_path
 
 from jsonschema import ValidationError, validate
 import json
@@ -48,7 +55,7 @@ def save_course_checkpoint(ctx: CourseExecutionContext):
         json.dump(escaped_data, f, indent=4)
 
 #def export_master_data(report: List[CourseExecutionContext], output_path: str = "master_data.json"):
-def export_master_data(report: List[CourseReportRecord], output_path: str = "master_data.json"):
+def export_master_data(report: List[CourseReportRecord], output_path: str = ACADEMIC_JSON_FILE):
     """
     STAGE-7: Exporter.
     Collects all eligible courses and saves them as a structured JSON.
@@ -56,8 +63,7 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
     try:
         os.makedirs(TEMP_OUTPUT_DIR, exist_ok=True)
     except Exception as e:
-        print(f"❌ Stage 7: Failed to create directory {TEMP_OUTPUT_DIR}. Error: {e}")
-        return
+        raise RuntimeError(f"Stage 7 : Failed to create directory: {TEMP_OUTPUT_DIR}. Error: {e}")
     
     courses_by_category = {}
     execution_report = {
@@ -130,3 +136,23 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
     report_path = os.path.join(TEMP_OUTPUT_DIR, REPORT_JSON_FILE)
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(execution_report, f, indent=4, ensure_ascii=False)
+    
+    source_path = get_path(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
+    if source_path.exists():
+        current_sha = get_file_sha256(source_path)
+        if current_sha is None:
+            raise RuntimeError(f"Stage 7 : SHA-256 Hash couldn't be calculated.")
+        
+        """Stores the latest Source Data signature in the manifest."""
+        manifest_path = get_path(DASHBOARD_DIR, DASHBOARD_JSON_FILE)
+              
+        if manifest_path.exists():
+            with open(manifest_path, 'r', encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            data = {}
+        data["global_source_sha"] = current_sha
+        
+        with open(manifest_path, 'w', encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+        print(f"✅ Source Data SHA calculated: {current_sha[:10]}...")
