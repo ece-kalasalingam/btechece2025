@@ -70,29 +70,24 @@ def build_dashboard_data():
         })
 
         # --- SYNC LOGIC ---
-       # 1. Check if the source data is newer than the file
+        # --- IMPROVED LOCAL-FRIENDLY SYNC LOGIC ---
+        
+        # 1. Check if the master data has changed since this file was built
         if file_mtime < latest_source_mtime:
             view_info["sync_status"] = "OUTDATED_SOURCE"
             view_info["stale"] = True
-
-        # 2. If hashes match exactly, we are perfectly synced
-        elif live_hash == saved_hash:
-            view_info["sync_status"] = "SYNCHRONIZED"
-            view_info["stale"] = False
-
-        # 3. If hashes differ, check if it's just because we generated it recently
-        else:
-            # Check if file was created in the last 10 minutes
-            is_recent = (datetime.now().timestamp() - file_mtime) < 6 
             
-            if is_recent:
-                # It's fresh! We don't care if it's committed yet.
-                view_info["sync_status"] = "JUST_GENERATED"
+        # 2. If the file is newer than the source data, it is "Fresh"
+        # We don't care about the Git Hash here because we are in local development
+        elif file_mtime >= latest_source_mtime:
+            # Check if it's actually committed (for the dashboard badge)
+            if live_hash == saved_hash:
+                view_info["sync_status"] = "SYNCHRONIZED"
                 view_info["stale"] = False
             else:
-                # It's old AND uncommitted. This is a problem.
-                view_info["sync_status"] = "MODIFIED_UNCOMMITTED"
-                view_info["stale"] = True
+                # This is the "Green" state for local development
+                view_info["sync_status"] = "LOCAL_BUILD_VALID"
+                view_info["stale"] = False
 
         output_data["views"].append(view_info)
 

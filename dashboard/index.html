@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>KARE ECE | Syllabus Integrity Dashboard</title>
+    <title>KARE ECE | Syllabus Build Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         :root {
@@ -10,123 +10,123 @@
             --card-bg: #1e293b;
             --text-main: #f8fafc;
             --text-dim: #94a3b8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --accent: #3b82f6;
+            --success: #10b981;  /* Green - Synchronized */
+            --info: #3b82f6;     /* Blue - Local Fresh */
+            --warning: #f59e0b;  /* Orange - Outdated */
+            --danger: #ef4444;   /* Red - Missing */
         }
 
         body {
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background-color: var(--bg);
             color: var(--text-main);
             margin: 0;
             padding: 2rem;
-            line-height: 1.5;
         }
 
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1100px; margin: 0 auto; }
 
         header {
             text-align: center;
             margin-bottom: 3rem;
-            border-bottom: 1px solid #334155;
             padding-bottom: 2rem;
+            border-bottom: 1px solid #334155;
         }
 
         .stats-summary {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
+            gap: 1rem;
             margin-bottom: 2rem;
         }
 
         .stat-card {
             background: var(--card-bg);
-            padding: 1.25rem;
-            border-radius: 0.75rem;
+            padding: 1rem;
+            border-radius: 8px;
             text-align: center;
             border: 1px solid #334155;
         }
 
-        .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--accent); display: block; }
-        .stat-label { font-size: 0.875rem; color: var(--text-dim); }
+        .stat-value { font-size: 1.2rem; font-weight: bold; color: var(--info); display: block; }
+        .stat-label { font-size: 0.8rem; color: var(--text-dim); text-transform: uppercase; }
 
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.5rem;
         }
 
         .view-card {
             background: var(--card-bg);
-            border-radius: 1rem;
+            border-radius: 12px;
             padding: 1.5rem;
             border: 1px solid #334155;
-            transition: transform 0.2s;
             position: relative;
-            overflow: hidden;
+            transition: transform 0.2s;
         }
 
-        .view-card:hover { transform: translateY(-4px); }
+        .view-card:hover { transform: translateY(-3px); }
+
+        /* Status Border colors */
+        .status-SYNCHRONIZED { border-left: 6px solid var(--success); }
+        .status-JUST_GENERATED { border-left: 6px solid var(--info); }
+        .status-OUTDATED_SOURCE { border-left: 6px solid var(--warning); }
+        .status-MISSING { border-left: 6px solid var(--danger); }
 
         .view-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 1rem;
         }
 
-        .view-title { font-size: 1.125rem; font-weight: 700; color: var(--text-main); }
+        .view-title { font-size: 1.1rem; font-weight: 800; }
 
         .badge {
             font-size: 0.7rem;
-            padding: 0.25rem 0.6rem;
-            border-radius: 9999px;
-            font-weight: 700;
-            text-transform: uppercase;
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-weight: bold;
         }
 
-        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-        .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
+        .badge-success { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .badge-info { background: rgba(59, 130, 246, 0.2); color: var(--info); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
 
-        .hash-box {
+        .hash-group {
             background: #0f172a;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            font-family: 'SFMono-Regular', Consolas, monospace;
-            font-size: 0.8rem;
+            padding: 0.8rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.75rem;
             margin: 1rem 0;
-            border: 1px solid #334155;
         }
 
-        .hash-line { display: flex; justify-content: space-between; margin-bottom: 0.25rem; }
+        .hash-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
         .hash-label { color: var(--text-dim); }
-        .hash-value { color: var(--accent); }
 
-        .btn-group { display: flex; gap: 0.5rem; margin-top: 1rem; }
-
-        .btn {
-            flex: 1;
+        .download-link {
+            display: block;
             text-align: center;
-            padding: 0.6rem;
-            border-radius: 0.5rem;
+            background: var(--info);
+            color: white;
             text-decoration: none;
-            font-size: 0.875rem;
+            padding: 0.6rem;
+            border-radius: 6px;
             font-weight: 600;
-            transition: opacity 0.2s;
+            font-size: 0.9rem;
         }
 
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-disabled { background: #334155; color: var(--text-dim); cursor: not-allowed; }
-        .btn:hover:not(.btn-disabled) { opacity: 0.9; }
+        .download-link:hover { opacity: 0.9; }
+        .disabled-link { background: #334155; cursor: not-allowed; opacity: 0.5; }
 
         footer {
             margin-top: 4rem;
             text-align: center;
+            font-size: 0.8rem;
             color: var(--text-dim);
-            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -135,21 +135,21 @@
 <div class="container">
     <header>
         <h1>Syllabus Build Dashboard</h1>
-        <p style="color: var(--text-dim)">KARE ECE Automated Verification System</p>
+        <p style="color: var(--text-dim)">Jeya prakash, here is your real-time build integrity report.</p>
     </header>
 
     <div class="stats-summary">
         <div class="stat-card">
-            <span class="stat-value" id="current-commit">------</span>
-            <span class="stat-label">Project HEAD Hash</span>
+            <span class="stat-value" id="repo-hash">---</span>
+            <span class="stat-label">Git Commit</span>
         </div>
         <div class="stat-card">
-            <span class="stat-value" id="build-time">--:--</span>
-            <span class="stat-label">Last Pipeline Run (UTC)</span>
+            <span class="stat-value" id="build-time">---</span>
+            <span class="stat-label">Dashboard Updated</span>
         </div>
         <div class="stat-card">
-            <span class="stat-value" id="sync-count">0/0</span>
-            <span class="stat-label">Files Synchronized</span>
+            <span class="stat-value" id="file-ratio">0 / 0</span>
+            <span class="stat-label">Ready for Release</span>
         </div>
     </div>
 
@@ -157,72 +157,76 @@
         </div>
 
     <footer>
-        © 2026 Department of ECE | KARE | Generated via GitHub Actions
+        © 2026 KARE | Department of Electronics and Communication Engineering
     </footer>
 </div>
 
 <script>
-async function loadData() {
+async function refreshDashboard() {
     try {
         const response = await fetch('dashboard_data.json');
         const data = await response.json();
 
-        // Update Stats
-        document.getElementById('current-commit').innerText = data.current_commit;
-        document.getElementById('build-time').innerText = data.generated_at.split('T')[1].substring(0, 5);
+        // Update Header Stats
+        document.getElementById('repo-hash').innerText = data.current_commit;
+        document.getElementById('build-time').innerText = new Date(data.generated_at).toLocaleTimeString();
         
-        const syncCount = data.views.filter(v => v.sync_status === "SYNCHRONIZED").length;
-        document.getElementById('sync-count').innerText = `${syncCount} / ${data.views.length}`;
+        const readyCount = data.views.filter(v => v.sync_status === "SYNCHRONIZED" || v.sync_status === "JUST_GENERATED").length;
+        document.getElementById('file-ratio').innerText = `${readyCount} / ${data.views.length}`;
 
-        let gridHtml = "";
+        let html = "";
         data.views.forEach(view => {
-            const isGenerated = view.status === "GENERATED";
+            let statusClass = "status-" + view.sync_status;
             let badgeClass = "badge-danger";
-            let statusText = view.sync_status || "MISSING";
+            let friendlyStatus = view.sync_status.replace(/_/g, " ");
 
+            // Logic to determine badge color
             if (view.sync_status === "SYNCHRONIZED") badgeClass = "badge-success";
-            else if (isGenerated) badgeClass = "badge-warning";
+            else if (view.sync_status === "JUST_GENERATED") {
+                badgeClass = "badge-info";
+                friendlyStatus = "LOCAL FRESH";
+            }
+            else if (view.sync_status === "OUTDATED_SOURCE") badgeClass = "badge-warning";
 
-            gridHtml += `
-                <div class="view-card">
+            html += `
+                <div class="view-card ${statusClass}">
                     <div class="view-header">
-                        <div class="view-title">${view.view.toUpperCase()}</div>
-                        <span class="badge ${badgeClass}">${statusText.replace('_', ' ')}</span>
+                        <span class="view-title">${view.view.toUpperCase()}</span>
+                        <span class="badge ${badgeClass}">${friendlyStatus}</span>
                     </div>
-                    
-                    <div class="hash-box">
-                        <div class="hash-line">
+
+                    <div class="hash-group">
+                        <div class="hash-row">
                             <span class="hash-label">Live Hash:</span>
-                            <span class="hash-value">${view.live_hash || '--------'}</span>
+                            <span>${view.live_hash ? view.live_hash.substring(0,8) : '--------'}</span>
                         </div>
-                        <div class="hash-line">
+                        <div class="hash-row">
                             <span class="hash-label">Git Hash:</span>
-                            <span class="hash-value">${view.last_commit_hash || '--------'}</span>
+                            <span>${view.last_commit_hash ? view.last_commit_hash.substring(0,8) : '--------'}</span>
                         </div>
                     </div>
 
-                    <div class="meta" style="font-size: 0.75rem; color: var(--text-dim);">
-                        Ver: ${view.version || '0'} | Modified: ${view.last_modified ? view.last_modified.split('T')[0] : 'N/A'}
+                    <div style="font-size: 0.75rem; margin-bottom: 1rem;">
+                        <span style="color: var(--text-dim)">Modified:</span> 
+                        ${view.last_modified ? new Date(view.last_modified).toLocaleString() : 'N/A'}
                     </div>
 
-                    <div class="btn-group">
-                        ${isGenerated ? 
-                            `<a href="../${view.file}" class="btn btn-primary" target="_blank">View File</a>` : 
-                            `<span class="btn btn-disabled">Not Built</span>`
-                        }
-                    </div>
+                    ${view.status === "GENERATED" ? 
+                        `<a href="../${view.file}" class="download-link" target="_blank">View Document</a>` :
+                        `<a href="#" class="download-link disabled-link">Build Missing</a>`
+                    }
                 </div>
             `;
         });
 
-        document.getElementById('view-grid').innerHTML = gridHtml;
+        document.getElementById('view-grid').innerHTML = html;
 
     } catch (e) {
-        document.getElementById('view-grid').innerHTML = `<p style="color: var(--danger)">Error loading dashboard: ${e.message}</p>`;
+        document.getElementById('view-grid').innerHTML = `<p style="color: var(--danger)">Dashboard data not found. Run main.py first.</p>`;
     }
 }
 
-window.onload = loadData;
+window.onload = refreshDashboard;
 </script>
 </body>
 </html>
