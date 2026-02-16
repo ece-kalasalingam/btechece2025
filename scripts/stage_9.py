@@ -70,19 +70,29 @@ def build_dashboard_data():
         })
 
         # --- SYNC LOGIC ---
+       # 1. Check if the source data is newer than the file
         if file_mtime < latest_source_mtime:
             view_info["sync_status"] = "OUTDATED_SOURCE"
             view_info["stale"] = True
-        elif live_hash != saved_hash:
-            is_recent = (datetime.now().timestamp() - file_mtime) < 300
-            view_info["sync_status"] = "JUST_GENERATED" if is_recent else "MODIFIED_UNCOMMITTED"
-            view_info["stale"] = not is_recent
-        elif saved_hash != current_repo_commit:
-            view_info["sync_status"] = "OUTDATED_COMMIT"
-            view_info["stale"] = True
-        else:
+
+        # 2. If hashes match exactly, we are perfectly synced
+        elif live_hash == saved_hash:
             view_info["sync_status"] = "SYNCHRONIZED"
             view_info["stale"] = False
+
+        # 3. If hashes differ, check if it's just because we generated it recently
+        else:
+            # Check if file was created in the last 10 minutes
+            is_recent = (datetime.now().timestamp() - file_mtime) < 6 
+            
+            if is_recent:
+                # It's fresh! We don't care if it's committed yet.
+                view_info["sync_status"] = "JUST_GENERATED"
+                view_info["stale"] = False
+            else:
+                # It's old AND uncommitted. This is a problem.
+                view_info["sync_status"] = "MODIFIED_UNCOMMITTED"
+                view_info["stale"] = True
 
         output_data["views"].append(view_info)
 
