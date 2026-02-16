@@ -1,6 +1,6 @@
 {
-    "generated_at": "2026-02-16T00:49:55.654002Z",
-    "current_commit": "c10ae05",
+    "generated_at": "2026-02-16T01:02:55.120063Z",
+    "current_commit": "518e9e9",
     "views": [
         {
             "view": "a4",
@@ -8,27 +8,31 @@
             "file": "syllabus_books/KARE_Syllabus_a4.pdf",
             "version": "1",
             "stale": true,
-            "sync_status": "MODIFIED_UNCOMMITTED",
+            "sync_status": "OUTDATED_SOURCE",
+            "live_hash": "655efdc",
             "last_commit_hash": "c10ae05",
-            "live_hash": "655efdc"
+            "last_modified": "2026-02-15T13:21:53.672646+00:00"
         },
         {
             "view": "a5",
             "status": "NOT_GENERATED",
             "file": null,
             "version": "N/A",
-            "stale": false,
-            "sync_status": "UNKNOWN"
+            "stale": true,
+            "sync_status": "MISSING",
+            "live_hash": "N/A",
+            "last_commit_hash": "N/A"
         },
         {
             "view": "courses-list",
             "status": "GENERATED",
             "file": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
-            "version": "1",
-            "stale": true,
-            "sync_status": "MODIFIED_UNCOMMITTED",
-            "last_commit_hash": "c10ae05",
-            "live_hash": "7ba0a9e"
+            "version": "2",
+            "stale": false,
+            "sync_status": "JUST_GENERATED",
+            "live_hash": "97f5268",
+            "last_commit_hash": "518e9e9",
+            "last_modified": "2026-02-16T01:02:55.098546+00:00"
         },
         {
             "view": "co-bloom",
@@ -36,9 +40,10 @@
             "file": "syllabus_books/KARE_SYLLABUS_co-bloom.docx",
             "version": "1",
             "stale": true,
-            "sync_status": "MODIFIED_UNCOMMITTED",
+            "sync_status": "OUTDATED_SOURCE",
+            "live_hash": "7987dc7",
             "last_commit_hash": "c10ae05",
-            "live_hash": "7987dc7"
+            "last_modified": "2026-02-15T19:15:14.339811+00:00"
         }
     ]
 }
