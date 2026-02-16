@@ -14,6 +14,17 @@ import scripts.stage_8 as stage_8
 import scripts.stage_9 as stage_9
 
 def run_pipeline():
+    # --- NEW LOGIC FOR STAGE 9 ONLY ---
+    # If the script is run without any command-line arguments
+    if len(sys.argv) == 1:
+        print("🔍 No arguments provided. Running Health Audit (Stage 9) only...")
+        try:
+            stage_9.build_dashboard_data()
+            print("\n--- Audit Complete ---")
+        except Exception as e:
+            print(f"❌ Audit Failed: {e}")
+        return # Exit the function early
+    # ----------------------------------
     available_views = list(VIEW_CONFIG.keys())
     if not available_views:
         raise ValueError("VIEW_CONFIG in contracts.py is empty!")

@@ -1,6 +1,6 @@
 {
-    "generated_at": "2026-02-16T01:02:55.120063Z",
-    "current_commit": "518e9e9",
+    "generated_at": "2026-02-16T01:06:05.216505Z",
+    "current_commit": "2e752f6",
     "views": [
         {
             "view": "a4",
@@ -27,11 +27,11 @@
             "view": "courses-list",
             "status": "GENERATED",
             "file": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
-            "version": "2",
+            "version": "3",
             "stale": false,
             "sync_status": "JUST_GENERATED",
             "live_hash": "97f5268",
-            "last_commit_hash": "518e9e9",
+            "last_commit_hash": "2e752f6",
             "last_modified": "2026-02-16T01:02:55.098546+00:00"
         },
         {
