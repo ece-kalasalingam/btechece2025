@@ -50,7 +50,7 @@
           \end{enumerate}
 
           \BlockHeading{Syllabus}
-          [% if course.syllabus.course_display_type == "UNITIZED-TABLE" %]
+          [% if course.syllabus and course.syllabus.course_display_type == "UNITIZED-TABLE" %]
             [% include "syllabus_units.tex.j2" %]
             [% elif course.syllabus.course_display_type == "LABORATORY-TABLE" %]
               \begin{xltabular}{\textwidth}{|c|X|c|c|}
@@ -62,7 +62,7 @@
                 \textbf{\#} & \textbf{Experiment Title \& Description} & \textbf{Hrs.} & \textbf{CO} \\
                 \hline
                 \endhead
-                [% for exp in course.syllabus.pc_experiments %]
+                [% for exp in course.syllabus.pc_experiments or [] %]
                 [[ loop.index ]] & 
                 \textbf{[[ exp.title ]]}
                 [%- if exp.description %] \newline {\small [[ exp.description ]]} [% endif %] & 
@@ -72,7 +72,7 @@
                 [% endfor %]
               \end{xltabular}
           [% else %]
-            [% if course.syllabus.raw_content %]
+            [% if course.syllabus.raw_content and course.syllabus.raw_content | length > 0 %]
               [[ course.syllabus.raw_content[0].latex ]]
             [% endif %]
           [% endif %]

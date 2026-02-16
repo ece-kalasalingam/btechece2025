@@ -1,195 +1,85 @@
 # scripts/stage_9.py
-
-import os
-import subprocess
+import json
 from pathlib import Path
+from datetime import datetime, timezone
+from scripts.paths import get_path
+from scripts.utils import (
+    get_current_git_commit, 
+    validate_environment_for_view, 
+    get_git_metadata,      # Your existing function
+    get_live_git_hash      # Our new function
+)
 from scripts.contracts import (
-    VIEW_CONFIG,
-    OUTPUT_DIR,
-    OUTPUT_SYLL_DIR,
     DESTINATION_DIR,
-    CHECKPOINTS_DIR
+    VIEW_CONFIG,
+    DASHBOARD_DIR,
+    DASHBOARD_JSON_FILE
 )
 
-cleanup_exts = {
-        ".aux",
-        ".out",
-        ".toc",
-        ".lof",
-        ".lot",
-        ".nav",
-        ".snm",
-        ".fls",
-        ".fdb_latexmk",
-        ".synctex.gz",
-        ".tex",
-        ".json"
+def build_dashboard_data():
+    dashboard_path = get_path(DASHBOARD_DIR)
+    dashboard_path.mkdir(exist_ok=True)
+
+    current_repo_commit = get_current_git_commit()
+    now_utc = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+    output_data = {
+        "generated_at": now_utc,
+        "current_commit": current_repo_commit,
+        "views": []
     }
-# --------------------------------------------------
-# PRE-FLIGHT CHECK
-# --------------------------------------------------
 
-def check_latex_env() -> bool:
-    try:
-        subprocess.run(
-            ["xelatex", "--version"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=True
-        )
-        return True
-    except Exception:
-        return False
+    for view_name, config in VIEW_CONFIG.items():
+        ext = config.get("ext", "pdf")
+        output_file = f"KARE_Syllabus_{view_name}.{ext}"
+        output_file_path = get_path(DESTINATION_DIR, output_file)
 
+        view_info = {
+            "view": view_name,
+            "status": "NOT_GENERATED",
+            "file": None,
+            "version": "N/A",
+            "stale": False,
+            "sync_status": "UNKNOWN"
+        }
 
-# --------------------------------------------------
-# STAGE 9A — COMPILE LaTeX (MODEL B)
-# --------------------------------------------------
-
-def compile_latex(view_type: str = "a4") -> bool:
-    if view_type not in VIEW_CONFIG:
-        raise ValueError(f"Unknown view type: {view_type}")
-    #raise RuntimeError(
-        #"Stage 9 (PDF compilation) is disabled in Python. "
-        #"XeLaTeX must be run ONLY via GitHub Actions."
-    #)
-    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
-    tex_file = base_dir / f"syllabus_{view_type}.tex"
-
-    if not tex_file.exists():
-        print(f"❌ Stage 9: Missing .tex file: {tex_file} or No courses were rendered. Check Stage 8 output.")
-        return False
-
-    if not check_latex_env():
-        print("❌ Stage 9: XeLaTeX not available.")
-        return False
-
-    # --------------------------------------------------
-    # MODEL B: Tell XeLaTeX where templates & assets live
-    # --------------------------------------------------
-    env = os.environ.copy()
-    env["TEXINPUTS"] = (
-        str(Path("templates").resolve()) + os.pathsep +
-        str(Path("assets").resolve()) + os.pathsep +
-        env.get("TEXINPUTS", "")
-    )
-
-    cmd = [
-        "xelatex",
-        "-interaction=nonstopmode",
-        "-halt-on-error",
-        tex_file.name
-    ]
-
-    try:
-        # --------------------------------------------------
-        # 🔁 TWO PASSES — REQUIRED FOR BOOKMARKS
-        # --------------------------------------------------
-        for run in range(2):
-            result = subprocess.run(
-                cmd,
-                cwd=str(base_dir),
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-
-            if result.returncode != 0:
-                print(f"❌ Stage 9: LaTeX failed on pass {run + 1}")
-                log = (result.stdout + "\n" + result.stderr).splitlines()[-25:]
-                print("\n".join(log))
-                return False
-
-        return True
-
-    except Exception as e:
-        print(f"❌ Stage 9: XeLaTeX execution error: {e}")
-        return False
-
-# --------------------------------------------------
-# STAGE 9B — FINALIZE OUTPUT
-# --------------------------------------------------
-
-def finalize_output(view_type: str = "a4") -> bool:
-    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
-    pdf_path = base_dir / f"syllabus_{view_type}.pdf"
-
-    if not pdf_path.exists():
-        print(f"❌ Stage 9: PDF not found: {pdf_path}")
-        return False
-
-    if pdf_path.stat().st_size == 0:
-        print("❌ Stage 9: Generated PDF is empty.")
-        return False
-
-    dest_dir = Path(DESTINATION_DIR)
-    dest_dir.mkdir(parents=True, exist_ok=True)
-
-    final_name = f"KARE_Syllabus_{view_type}.pdf"
-    pdf_path.replace(dest_dir / final_name)
-
-    return True
-# --------------------------------------------------
-# STAGE 9C — CLEAN THE FOLDERS
-# 
-def cleanup_artifacts(view_type: str = "a4") -> None:
-    """
-    Removes LaTeX auxiliary files generated during Stage 9.
-    Keeps the .log file for debugging/audit purposes.
-    """
-
-    base_dir = Path(OUTPUT_DIR) / OUTPUT_SYLL_DIR / view_type
-
-    # Explicit whitelist of extensions to remove
-    
-
-    for item in base_dir.iterdir():
-        if not item.is_file():
+        if not output_file_path.exists():
+            output_data["views"].append(view_info)
             continue
 
-        # Handle .synctex.gz separately
-        if item.name.endswith(".synctex.gz"):
-            item.unlink(missing_ok=True)
-            continue
+        # 1. Get Metadata (The "Saved" state in Git)
+        doc_version, doc_date, saved_hash = get_git_metadata(output_file_path)
+        
+        # 2. Get Live Hash (The "Actual" state on Disk)
+        live_hash = get_live_git_hash(output_file_path)
 
-        if item.suffix in cleanup_exts:
-            item.unlink(missing_ok=True)
+        view_info.update({
+            "status": "GENERATED",
+            "file": str(output_file_path.relative_to(get_path()).as_posix()),
+            "version": doc_version,
+            "last_commit_hash": saved_hash,
+            "live_hash": live_hash
+        })
 
-def cleanup_checkpoints() -> None:
-    """
-    Removes LaTeX auxiliary files generated during Stage 9.
-    Keeps the .log file for debugging/audit purposes.
-    """
+        # --- SYNC / STALE LOGIC ---
+        # If the file on disk (live_hash) doesn't match the last known commit (saved_hash),
+        # or if the file was built on an older repo commit than what we have now.
+        if live_hash != saved_hash:
+            view_info["stale"] = True
+            view_info["sync_status"] = "MODIFIED_UNCOMMITTED"
+        elif saved_hash != current_repo_commit:
+             # This view was compiled for an older version of the course list
+            view_info["stale"] = True
+            view_info["sync_status"] = "OUTDATED_COMMIT"
+        else:
+            view_info["stale"] = False
+            view_info["sync_status"] = "SYNCHRONIZED"
 
-    base_dir = Path(OUTPUT_DIR) / CHECKPOINTS_DIR
+        output_data["views"].append(view_info)
 
-    # Explicit whitelist of extensions to remove
-    
+    # Save the Manifest/Dashboard
+    json_file = dashboard_path / DASHBOARD_JSON_FILE
+    with open(json_file, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, indent=4)
 
-    for item in base_dir.iterdir():
-        if not item.is_file():
-            continue
-
-        # Handle .synctex.gz separately
-        if item.name.endswith(".synctex.gz"):
-            item.unlink(missing_ok=True)
-            continue
-
-        if item.suffix in cleanup_exts:
-            item.unlink(missing_ok=True)
-
-# --------------------------------------------------
-# STAGE 9 ORCHESTRATOR (ONLY ENTRY POINT)
-# --------------------------------------------------
-
-def run_stage9(view_type: str = "a4") -> bool:
-    if not compile_latex(view_type):
-        return False
-
-    if not finalize_output(view_type):
-        return False
-    
-    cleanup_artifacts(view_type)
-    cleanup_checkpoints()
-    return True
+    print(f"✅ Dashboard updated. Sync Check: {len([v for v in output_data['views'] if v['stale']])} views need attention.")

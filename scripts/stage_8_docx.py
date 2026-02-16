@@ -8,7 +8,7 @@ from docx.oxml import OxmlElement
 import shutil
 
 from scripts.contracts import (
-    OUTPUT_DIR,
+    TEMP_OUTPUT_DIR,
     ACADEMIC_JSON_FILE,
     DESTINATION_DIR,
     TEMPLATES_DIR,
@@ -69,15 +69,15 @@ def force_table_style_design(
 
 
 
-def generate_word_co_bloom():
-    json_path = get_path(OUTPUT_DIR, ACADEMIC_JSON_FILE)
+def generate_word_co_bloom(view_type="co-bloom"):
+    json_path = get_path(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
     if not json_path.exists():
         raise FileNotFoundError(
             f"Stage 8 DOCX: Academic JSON not found at {json_path}"
         )
     """Generates a 5-column Word table with AutoFit to Contents behavior."""
-    md_path = get_path(OUTPUT_DIR, "temp_report.md")
-    docx_path = get_path(DESTINATION_DIR, "CO_BLOOM_Table.docx")
+    md_path = get_path(TEMP_OUTPUT_DIR, "temp_report.md")
+    docx_path = get_path(DESTINATION_DIR, f"KARE_SYLLABUS_{view_type}.docx")
     ref_doc_path = get_path(TEMPLATES_DIR, DOCX_TEMPLATES_DIR, "co-bloom-reference.docx")
 
     with open(json_path, "r", encoding="utf-8") as f:

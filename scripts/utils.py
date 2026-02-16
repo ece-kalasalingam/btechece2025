@@ -1,5 +1,8 @@
 import re
+import shutil
+import sys
 from typing import Optional, Any, TypeVar
+from scripts.contracts import EXTENSION_GUARDS, VIEW_CONFIG
 from scripts.patterns import SECTION_TITLE_MAP
 
 from pathlib import Path
@@ -258,6 +261,14 @@ def recursive_escape_latex(data: T) -> T:
     elif isinstance(data, str):
         return escape_latex(data) # type: ignore
     return data
+def get_current_git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            encoding="utf-8"
+        ).strip()
+    except Exception:
+        return "N/A"
 def get_git_metadata(file_path: Path):
     #Returns machine-readable Git metadata:
     # (commit_count, last_commit_date_iso)
@@ -285,12 +296,19 @@ def get_git_metadata(file_path: Path):
         return "N/A", "N/A", "N/A"
 
     return doc_version, doc_date, doc_git_hash
-def get_git_hash(file_path):
-    # Returns the unique 7-character identifier for the current version
-    return subprocess.check_output(
-        ['git', 'rev-parse', '--short', 'HEAD'], 
-        encoding='utf-8'
-    ).strip()
+
+def get_live_git_hash(file_path: Path):
+    """Calculates the Git-style hash of a file on disk without reading it into Python RAM."""
+    try:
+        # 'git hash-object' is extremely fast and efficient
+        return subprocess.check_output(
+            ["git", "hash-object", str(file_path)], 
+            stderr=subprocess.DEVNULL, 
+            encoding="utf-8"
+        ).strip()[:7] # Returning short 7-char hash
+    except Exception:
+        return "N/A"
+
 def validate_course_code(code: str) -> None:
     if not code:
         raise ValueError("Empty course code")
@@ -325,3 +343,33 @@ def get_column_count(line):
     # or inside what looks like a math block (simplified for your case)
     parts = re.findall(r'(?:\\\||[^|])+', line.strip().strip('|'))
     return len(get_column_cells(line))
+def is_tool_available(name: str) -> bool:
+    """
+    Robust check for system executables.
+    Ensures we pass a string to avoid PathLike issues on older Windows/Python.
+    """
+    return shutil.which(str(name)) is not None
+def validate_environment_for_view(view_name: str) -> bool:
+    config = VIEW_CONFIG.get(view_name)
+    if not config:
+        raise ValueError(f"View '{view_name}' not found in VIEW_CONFIG.")
+    ext = config.get("ext", "").lower().lstrip('.')
+    suffix = config.get("suffix", view_name)
+    if ext not in EXTENSION_GUARDS:
+        raise RuntimeError(f"Extension '.{ext}' is not defined in the security guards.")
+    required_mods = EXTENSION_GUARDS[ext]["modules"]
+    if not any(mod in sys.modules for mod in required_mods):
+        raise ImportError(
+            f"Environment Mismatch: Configuration requested '.{ext}', "
+            f"but none of the required modules {required_mods} are imported."
+        )
+    required_tools = EXTENSION_GUARDS[ext].get("tools", [])
+    if required_tools is None:
+        raise RuntimeError(f"Configuration Error: No tool list defined for '.{ext}' in guards.")
+    for tool in required_tools:
+        if not is_tool_available(tool):
+            raise RuntimeError(
+                f"System Tool Missing: '{tool}' is required to generate '.{ext}' "
+                "but was not found in the system PATH."
+            )
+    return True

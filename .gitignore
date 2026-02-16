@@ -7,6 +7,9 @@ outputs/
 ingestion_report.json
 DASHBOARD.md
 output_generated/
+temp_output/
+temp_logs/
+temporary_files/
 
 # Local testing scripts
 test_bench.py

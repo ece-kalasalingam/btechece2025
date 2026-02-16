@@ -8,7 +8,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.cell.cell import Cell
 
 from scripts.contracts import (
-    OUTPUT_DIR,
+    TEMP_OUTPUT_DIR,
     ACADEMIC_JSON_FILE,
     DESTINATION_DIR,
     CourseCategory
@@ -23,12 +23,12 @@ def autosize_columns(ws):
         adjusted_width = max_length + 2  # padding
         ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
-def generate_excel_courses_list():
+def generate_excel_courses_list(view_type="courses-list"):
 
     # ----------------------------
     # 1. Validate JSON (NO TRY)
     # ----------------------------
-    json_path = get_path(OUTPUT_DIR, ACADEMIC_JSON_FILE)
+    json_path = get_path(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
 
     if not json_path.exists():
         raise FileNotFoundError(
@@ -39,22 +39,22 @@ def generate_excel_courses_list():
         data = json.load(f)
 
     if "courses" not in data:
-        raise ValueError("Excel Stage: Missing 'courses' key in academic JSON.")
+        raise ValueError("Stage 8 XLSX: Missing 'courses' key in academic JSON.")
 
     courses_by_category = data["courses"]
 
     if not isinstance(courses_by_category, dict):
-        raise TypeError("Excel Stage: 'courses' must be a dictionary.")
+        raise TypeError("Stage 8 XLSX: 'courses' must be a dictionary.")
 
     if not courses_by_category:
-        raise RuntimeError("Excel Stage: 'courses' dictionary is empty.")
+        raise RuntimeError("Stage 8 XLSX: 'courses' dictionary is empty.")
 
     valid_categories = {cat.code for cat in CourseCategory}
 
     for category in courses_by_category.keys():
         if category not in valid_categories:
             raise ValueError(
-                f"Excel Stage: Invalid category '{category}'."
+                f"Stage 8 XLSX: Invalid category '{category}'."
             )
 
     # ----------------------------
@@ -94,26 +94,26 @@ def generate_excel_courses_list():
 
             if not isinstance(courses, list):
                 raise TypeError(
-                    f"Excel Stage: Category '{cat.code}' must contain a list."
+                    f"Stage 8 XLSX: Category '{cat.code}' must contain a list."
                 )
 
             for course in courses:
 
                 if not isinstance(course, dict):
                     raise TypeError(
-                        f"Excel Stage: Course in '{cat.code}' must be a dictionary."
+                        f"Stage 8 XLSX: Course in '{cat.code}' must be a dictionary."
                     )
 
                 meta = course.get("course_meta", {})
                 if not isinstance(meta, dict):
                     raise TypeError(
-                        f"Excel Stage: 'course_meta' must be a dictionary."
+                        f"Stage 8 XLSX: 'course_meta' must be a dictionary."
                     )
 
                 course_code = course.get("course_code", "")
                 if not course_code:
                     raise ValueError(
-                        f"Excel Stage: Course missing 'course_code' in '{cat.code}'."
+                        f"Stage 8 XLSX: Course missing 'course_code' in '{cat.code}'."
                     )
 
                 ws.append([
@@ -131,7 +131,7 @@ def generate_excel_courses_list():
 
         if total_count == 0:
             raise RuntimeError(
-                "Excel Stage: Categories exist but contain zero courses."
+                "Stage 8 XLSX: Categories exist but contain zero courses."
             )
 
         # Formatting
@@ -163,7 +163,7 @@ def generate_excel_courses_list():
 
         autosize_columns(ws)
 
-        out_path = get_path(DESTINATION_DIR, "Courses_List.xlsx")
+        out_path = get_path(DESTINATION_DIR, f"KARE_SYLLABUS_{view_type}.xlsx")
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         wb.save(out_path)

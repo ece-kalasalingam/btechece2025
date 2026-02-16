@@ -1,3 +1,4 @@
+import sys
 import traceback
 import argparse
 from scripts.contracts import CourseExecutionContext, VIEW_CONFIG, ViolationLevel, CourseReportRecord
@@ -17,14 +18,19 @@ def run_pipeline():
     if not available_views:
         raise ValueError("VIEW_CONFIG in contracts.py is empty!")
     cli_choices = available_views + ["all"]
-    parser = argparse.ArgumentParser(description="Syllabus Generator")
+    parser = argparse.ArgumentParser(description="Syllabus Generator", exit_on_error=False)
     parser.add_argument(
         "--view", 
         choices=cli_choices, 
         default=available_views[0], 
         help=f"Select layout (Default: {available_views[0]})"
     )
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except argparse.ArgumentError as e:
+        print(f"[CLI ERROR] {e}")
+        sys.exit(1)
+    
     if args.view == "all":
         views_to_process = available_views
     else:
@@ -65,7 +71,7 @@ def run_pipeline():
             
             # 3. STAGE 1: Structural Validation & Partitioning
             # Requires two arguments: (raw_text, ctx)
-            stage_1. run_structure_parse(raw_text, ctx)
+            stage_1.run_structure_parse(raw_text, ctx)
             
             # 4. STAGE 2: Format Gate (Mandatory Header check & Section check)
             # Function name in your file is run_format_gate, not run_validation_gate
@@ -180,15 +186,16 @@ def run_pipeline():
         #master_report.append(ctx)
     stage_7.export_master_data(master_report)
     for v in views_to_process:
-        # print(f"🛠️ Processing PDF View: {v}")
-        # Stage 8 will now use VIEW_CONFIG[v] internally
-        if v.startswith("xlsx") or v.startswith("docx"):
+        try:
             stage_8.run_book_generation(view_type=v)
-        else:
-            stage_8.run_book_generation(view_type=v)
-            stage_9.run_stage9(view_type=v)
+        except Exception as e:
+            print(f"\n❌ Pipeline Failed at Stage-8 for view '{v}'")
+            print(f"Reason: {e}")
+            print("\n--- Pipeline Aborted ---")
+            return
+    stage_9.build_dashboard_data()
     
     print(f"\n--- Pipeline Complete. Processed {len(master_report)} courses. ---")
-
+    
 if __name__ == "__main__":
     run_pipeline()

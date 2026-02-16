@@ -1,5 +1,5 @@
 # scripts/stage_5.py
-from scripts.contracts import CourseExecutionContext, CanonicalCourse, CourseMeta
+from scripts.contracts import CourseExecutionContext, CanonicalCourse, CourseMeta, SyllabusBlock
 from scripts.data_extraction import extract_section_data
 def extract_body_data(ctx: CourseExecutionContext):
     """
@@ -34,6 +34,14 @@ def run_course_assembly(ctx: CourseExecutionContext):
         document_git_hash=ctx.metadata.get("document_git_hash", "N/A"), # Git Hash
     )
     ctx.metadata = None  # Clear metadata to save memory
+    syll_dict = ctx.extracted_data.get("syllabus", {})
+
+    syllabus_obj = SyllabusBlock(
+        course_display_type=syll_dict.get("course_display_type", "RAW"),
+        units=syll_dict.get("units", []),
+        pc_experiments=syll_dict.get("pc_experiments", []),
+        raw_content=syll_dict.get("raw_content", [])
+    )
 
     ctx.course = CanonicalCourse(
         course_code=ctx.course_code,
@@ -41,7 +49,7 @@ def run_course_assembly(ctx: CourseExecutionContext):
         description=ctx.structure.explicit_sections.get("course_description", ""),
         objectives=ctx.extracted_data.get("course_objectives", []),
         outcomes=ctx.extracted_data.get("course_outcomes", []),
-        syllabus=ctx.extracted_data.get("syllabus", []),
+        syllabus=syllabus_obj,
         textbooks=ctx.extracted_data.get("textbooks", []),
         references=ctx.extracted_data.get("references", []),
         articulation=ctx.structure.explicit_sections.get("articulation_matrix"),

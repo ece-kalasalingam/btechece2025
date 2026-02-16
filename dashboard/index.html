@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KARE ECE – Syllabus Build Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+    body {
+        font-family: "Segoe UI", Roboto, Arial, sans-serif;
+        background: #f5f7fa;
+        margin: 0;
+        padding: 40px;
+        color: #2c3e50;
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .subtitle {
+        text-align: center;
+        margin-bottom: 40px;
+        color: #555;
+    }
+
+    .card {
+        background: white;
+        padding: 20px;
+        margin-bottom: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .view-name {
+        font-size: 18px;
+        font-weight: 600;
+    }
+
+    .status {
+        font-weight: 600;
+    }
+
+    .status.success {
+        color: #27ae60;
+    }
+
+    .status.fail {
+        color: #e74c3c;
+    }
+
+    .meta {
+        font-size: 13px;
+        color: #777;
+        margin-top: 4px;
+    }
+
+    .download-btn {
+        padding: 8px 14px;
+        background: #3498db;
+        color: white;
+        text-decoration: none;
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .download-btn:hover {
+        background: #2980b9;
+    }
+
+    .footer {
+        margin-top: 40px;
+        text-align: center;
+        font-size: 12px;
+        color: #888;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>KARE ECE – Syllabus Build Dashboard</h1>
+<div class="subtitle">Automated Build Status & Download Center</div>
+
+<div id="dashboard">Loading build status...</div>
+
+<div class="footer">
+    © Department of ECE | Automated Syllabus System
+</div>
+
+<script>
+async function loadStatus() {
+    try {
+        const response = await fetch('dashboard_data.json');
+        const data = await response.json();
+
+        let html = "";
+
+        data.views.forEach(info => {
+
+            const isGenerated = info.status === "GENERATED";
+            const isStale = info.stale === true;
+
+            let statusLabel = "";
+            let statusClass = "";
+
+            if (isGenerated && !isStale) {
+                statusLabel = "✔ Generated";
+                statusClass = "success";
+            } 
+            else if (isGenerated && isStale) {
+                statusLabel = "⚠ Stale (Needs Rebuild)";
+                statusClass = "fail";
+            }
+            else {
+                statusLabel = "✖ Not Generated";
+                statusClass = "fail";
+            }
+
+            // Fix Windows backslash paths
+            let filePath = info.file ? info.file.replace(/\\/g, "/") : null;
+
+            html += `
+            <div class="card">
+                <div>
+                    <div class="view-name">${info.view.toUpperCase()}</div>
+                    <div class="meta">
+                        ${isGenerated ? 
+                            "Last Modified: " + (info.last_modified || "Unknown") 
+                            : 
+                            "No build available"}
+                    </div>
+                </div>
+                <div>
+                    <span class="status ${statusClass}">${statusLabel}</span>
+                    ${isGenerated && filePath ?
+                        `<a class="download-btn" href="../${filePath}" target="_blank">Download</a>`
+                        : ""
+                    }
+                </div>
+            </div>
+            `;
+        });
+
+        html += `
+        <div class="meta" style="text-align:center; margin-top:30px;">
+            Pipeline Generated At: ${data.generated_at}<br>
+            Current Commit: ${data.current_commit}
+        </div>
+        `;
+
+        document.getElementById("dashboard").innerHTML = html;
+
+    } catch (error) {
+        console.error(error);
+        document.getElementById("dashboard").innerHTML =
+            "<div style='color:red;'>Failed to load dashboard data.</div>";
+    }
+}
+
+window.onload = loadStatus;
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["courses", "execution_report"],
+  "properties": {
+    "courses": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/definitions/course"
+        }
+      }
+    },
+    "execution_report": {
+      "type": "object",
+      "required": ["warnings", "errors"],
+      "properties": {
+        "warnings": { "type": "array" },
+        "errors": { "type": "array" }
+      }
+    }
+  },
+  "definitions": {
+    "course": {
+      "type": "object",
+      "required": [
+        "course_code",
+        "course_meta",
+        "syllabus",
+        "description",
+        "objectives",
+        "outcomes",
+        "textbooks",
+        "references"
+      ],
+      "properties": {
+        "course_code": { "type": "string" },
+
+        "course_meta": {
+          "type": "object",
+          "required": [
+            "course_title",
+            "course_category",
+            "course_type",
+            "l", "t", "p", "x", "c"
+          ],
+          "properties": {
+            "course_title": { "type": "string" },
+            "course_category": { "type": "string" },
+            "course_type": { "type": "string" },
+            "l": { "type": "integer" },
+            "t": { "type": "integer" },
+            "p": { "type": "integer" },
+            "x": { "type": "integer" },
+            "c": { "type": "number" }
+          }
+        },
+
+        "syllabus": {
+          "type": "object",
+          "required": [
+            "course_display_type",
+            "units",
+            "pc_experiments",
+            "raw_content"
+          ],
+          "properties": {
+            "course_display_type": { "type": "string" },
+            "units": { "type": "array" },
+            "pc_experiments": { "type": "array" },
+            "raw_content": { "type": "array" }
+          }
+        },
+
+        "description": { "type": "string" },
+        "objectives": { "type": "array" },
+        "outcomes": { "type": "array" },
+        "textbooks": { "type": "array" },
+        "references": { "type": "array" }
+      }
+    }
+  }
+}

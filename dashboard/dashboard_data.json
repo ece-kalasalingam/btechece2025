@@ -1,0 +1,44 @@
+{
+    "generated_at": "2026-02-16T00:45:44.574682Z",
+    "current_commit": "b9af37f",
+    "views": [
+        {
+            "view": "a4",
+            "status": "GENERATED",
+            "file": "syllabus_books/KARE_Syllabus_a4.pdf",
+            "version": "N/A",
+            "stale": true,
+            "sync_status": "MODIFIED_UNCOMMITTED",
+            "last_commit_hash": "N/A",
+            "live_hash": "655efdc"
+        },
+        {
+            "view": "a5",
+            "status": "NOT_GENERATED",
+            "file": null,
+            "version": "N/A",
+            "stale": false,
+            "sync_status": "UNKNOWN"
+        },
+        {
+            "view": "courses-list",
+            "status": "GENERATED",
+            "file": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
+            "version": "N/A",
+            "stale": true,
+            "sync_status": "MODIFIED_UNCOMMITTED",
+            "last_commit_hash": "N/A",
+            "live_hash": "d5e7970"
+        },
+        {
+            "view": "co-bloom",
+            "status": "GENERATED",
+            "file": "syllabus_books/KARE_SYLLABUS_co-bloom.docx",
+            "version": "N/A",
+            "stale": true,
+            "sync_status": "MODIFIED_UNCOMMITTED",
+            "last_commit_hash": "N/A",
+            "live_hash": "7987dc7"
+        }
+    ]
+}

@@ -3,15 +3,33 @@ import json
 import os
 import dataclasses
 from typing import List
-from scripts.contracts import CourseExecutionContext, OUTPUT_DIR, ACADEMIC_JSON_FILE, ViolationLevel, CHECKPOINTS_DIR, CourseReportRecord, REPORT_JSON_FILE
+from scripts.contracts import CourseCategory, CourseExecutionContext, TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE, ViolationLevel, CHECKPOINTS_DIR, CourseReportRecord, REPORT_JSON_FILE
 from scripts.utils import  validate_course_code
+
+from jsonschema import ValidationError, validate
+import json
+
+def validate_export_schema(export_data: dict):
+    schema_path = os.path.join("schemas", "r2025_syllabus_schema.json")
+
+    with open(schema_path, "r", encoding="utf-8") as f:
+        schema = json.load(f)
+
+    try:
+        validate(instance=export_data, schema=schema)
+    except ValidationError as e:
+        print("❌ JSON Schema Validation Failed")
+        print(f"Path: {list(e.path)}")
+        print(f"Message: {e.message}")
+        raise RuntimeError("Stage-7 schema validation failed.") from e
+
 
 def save_course_checkpoint(ctx: CourseExecutionContext):
     """
     Saves a single course result immediately to disk.
     This prevents data loss if a later course causes a crash.
     """
-    checkpoint_dir = os.path.join(OUTPUT_DIR, CHECKPOINTS_DIR)
+    checkpoint_dir = os.path.join(TEMP_OUTPUT_DIR, CHECKPOINTS_DIR)
     os.makedirs(checkpoint_dir, exist_ok=True)
     
     # We only save if there's a course object (Stage 4+ reached)
@@ -36,9 +54,9 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
     Collects all eligible courses and saves them as a structured JSON.
     """
     try:
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
+        os.makedirs(TEMP_OUTPUT_DIR, exist_ok=True)
     except Exception as e:
-        print(f"❌ Stage 7: Failed to create directory {OUTPUT_DIR}. Error: {e}")
+        print(f"❌ Stage 7: Failed to create directory {TEMP_OUTPUT_DIR}. Error: {e}")
         return
     
     courses_by_category = {}
@@ -58,7 +76,7 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
         # 2. Load checkpoint
         validate_course_code(rec.course_code)
         checkpoint_path = os.path.join(
-            OUTPUT_DIR, CHECKPOINTS_DIR, f"{rec.course_code}.json"
+            TEMP_OUTPUT_DIR, CHECKPOINTS_DIR, f"{rec.course_code}.json"
         )
 
         if not os.path.exists(checkpoint_path):
@@ -82,14 +100,33 @@ def export_master_data(report: List[CourseReportRecord], output_path: str = "mas
             })
         
     #Write master data of eligible courses by category
-    file_path = os.path.join(OUTPUT_DIR, ACADEMIC_JSON_FILE)
+    # 1️⃣ Enforce category order using Enum
+    ordered_courses_by_category = {}
+
+    for cat in CourseCategory:
+        if cat.code in courses_by_category:
+            ordered_courses_by_category[cat.code] = courses_by_category[cat.code]
+
+    courses_by_category = ordered_courses_by_category
+
+    # 2️⃣ Enforce ascending course_code order inside each category
+    for category in courses_by_category:
+        courses_by_category[category] = sorted(
+            courses_by_category[category],
+            key=lambda c: c.get("course_code", "")
+        )
+
+    final_payload = {
+        "courses": courses_by_category,
+        "execution_report": execution_report
+    }
+    validate_export_schema(final_payload)
+
+    file_path = os.path.join(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
     with open(file_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "courses": courses_by_category,
-            "execution_report": execution_report
-        }, f, indent=4, ensure_ascii=False)
+        json.dump(final_payload, f, indent=4, ensure_ascii=False)
     
     # Also save the execution report separately for easy access
-    report_path = os.path.join(OUTPUT_DIR, REPORT_JSON_FILE)
+    report_path = os.path.join(TEMP_OUTPUT_DIR, REPORT_JSON_FILE)
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(execution_report, f, indent=4, ensure_ascii=False)

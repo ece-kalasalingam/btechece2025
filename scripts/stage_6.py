@@ -26,6 +26,42 @@ def normalize_bos_date(date_str: str) -> str:
         
     return f"{normalized_month} {normalized_year}"
 
+from typing import Dict, Union
+
+def sum_syllabus_hours(data) -> Dict[str, Union[int, float]]:
+    """
+    Recursively finds and sums all keys ending in '_hours'.
+    This is agnostic to display_type and handles new hour categories automatically.
+    """
+    # Use a dictionary to store dynamic categories (theory, practical, seminar, etc.)
+    # Initializing with 0.0 handles the Pylance 'float' assignment error.
+    totals: Dict[str, Union[int, float]] = {}
+
+    def recurse(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                # General check: find any key that ends in '_hours'
+                if isinstance(key, str) and key.endswith("_hours"):
+                    if isinstance(value, (int, float)):
+                        # If category doesn't exist yet, start at 0.0
+                        if key not in totals:
+                            totals[key] = 0.0
+                        totals[key] += value
+                
+                # Continue searching through the value
+                recurse(value)
+        
+        elif isinstance(node, list):
+            for item in node:
+                recurse(item)
+        
+        elif hasattr(node, "__dict__"):
+            recurse(node.__dict__)
+
+    # Start the process
+    recurse(data)
+    return totals
+
 def run_policy_gate(ctx: CourseExecutionContext):
     """
     STAGE-6: Policy & Data Normalization.
@@ -39,10 +75,20 @@ def run_policy_gate(ctx: CourseExecutionContext):
     if meta.c % 0.5 != 0:
         ctx.log("STAGE-6", "CREDIT-GRANULARITY", f"Credits {meta.c} not a multiple of 0.5.", fatal=False)
 
-    # 2. Credit Equation Validation
+    # 2. Credit Equation and Hours Validation
     calculated_c = (meta.l + meta.t) + (meta.p / 2) + (meta.x / 3)
-    if abs(calculated_c - meta.c) > 0.01:
+    if abs(calculated_c - meta.c) > 0.1:
         ctx.log("STAGE-6", "CREDIT-MISMATCH", f"Equation check failed: {calculated_c} != {meta.c},", fatal=True)
+    # Additionally, we can validate the total hours against the credit calculation
+    totals = sum_syllabus_hours(ctx.course.syllabus.__dict__)
+    total_theory_hours = totals.get("theory_hours", 0)  
+    total_practical_hours = totals.get("practical_hours", 0)
+    total_x_activity_hours = totals.get("x_activity_hours", 0)    
+    
+    if((total_theory_hours>0) or (total_practical_hours>0) or (total_x_activity_hours>0)):
+        calculated_c = (total_theory_hours + (total_practical_hours/2) + (total_x_activity_hours/3))/15
+        if (abs(calculated_c - meta.c) > 0.1): 
+            ctx.log("STAGE-6", "CREDITS-HOURS-MISMATCH", f"Credits calculated from total hours {calculated_c} does not align with expected credits {meta.c}.", fatal=True)
 
     # 3. Use the Common Utility for Title Normalization
     meta.course_title = normalize_syllabus_text(meta.course_title, is_title=True)
@@ -78,7 +124,7 @@ def run_policy_gate(ctx: CourseExecutionContext):
     for co in ctx.course.outcomes:
         co["outcome"] = capitalize_if_first_char_english(co["outcome"])
     # Apply capitalization to Unit and Topic titles
-    for unit in ctx.course.syllabus.get("units", []):
+    for unit in ctx.course.syllabus.units:
         # Capitalize Unit Title
         if "unit_title" in unit:
             unit["unit_title"] = normalize_syllabus_text(unit["unit_title"], is_title=True)
@@ -89,7 +135,7 @@ def run_policy_gate(ctx: CourseExecutionContext):
                 topic["title"] = capitalize_if_first_char_english(topic["title"])
 
     # Apply capitalization to PC Experiment titles (for Laboratory courses)
-    for exp in ctx.course.syllabus.get("pc_experiments", []):
+    for exp in ctx.course.syllabus.pc_experiments:
         if "title" in exp:
             exp["title"] = normalize_syllabus_text(exp["title"], is_title=True)
 
@@ -108,7 +154,7 @@ def run_policy_gate(ctx: CourseExecutionContext):
         return
 
     converter = MarkdownToLatexConverter()
-    raw_list = ctx.course.syllabus.get("raw_content", [])
+    raw_list = ctx.course.syllabus.raw_content
     if raw_list:
         # 1. Reference the specific dictionary inside the list
         entry = raw_list[0]

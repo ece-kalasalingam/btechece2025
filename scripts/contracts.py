@@ -4,18 +4,19 @@ from enum import Enum, auto
 # File system constants
 COURSES_DIR = "courses_md"
 INDEX_FILE = "index.md"
-OUTPUT_DIR = "output_generated"
+TEMP_OUTPUT_DIR = "temporary_files"
 ACADEMIC_JSON_FILE = "syllabus_data.json"
 REPORT_JSON_FILE = "execution_report.json"
-OUTPUT_SYLL_DIR = "syllabus_files"
+OUTPUT_SYLL_DIR = "temp_logs"
 TEMPLATES_DIR = "templates"
 JINJA_TEMPLATES_DIR = "jinja"
 DOCX_TEMPLATES_DIR = "docx"
-MAIN_LATEX_TEMPLATE_FILE = "base.tex.j2"
-DESTINATION_DIR = "final_documents"
+DESTINATION_DIR = "syllabus_books"
 CHECKPOINTS_DIR = "checkpoints"
 CO_MIN_COUNT = 3
 CO_MAX_COUNT = 6
+DASHBOARD_DIR = "dashboard"
+DASHBOARD_JSON_FILE = "dashboard_data.json"
 
 
 MONTH_MAP = {
@@ -43,10 +44,24 @@ BLOOM_EXPANSION = {
 
 # View Configurations
 VIEW_CONFIG = {
-    "a4": "base.tex.j2",
-    "a5": "base.tex.j2",
-    "xlsx-courses-list": None,
-    "docx-co-bloom": None
+    "a4": {"template": "base.tex.j2", "ext": "pdf"},
+    "a5": {"template": "base.tex.j2", "ext": "pdf"},
+    "courses-list": {"ext": "xlsx"},
+    "co-bloom": {"ext": "docx"}
+}
+EXTENSION_GUARDS = {
+    "pdf": {
+        "modules": ["subprocess"], 
+        "tools": ["pdflatex"]
+    },
+    "xlsx": {
+        "modules": ["pandas", "openpyxl"], 
+        "tools": [] # No external tool needed, uses python libraries
+    },
+    "docx": {
+        "modules": ["docx"], 
+        "tools": ["pandoc"] # Assuming pandoc is used via subprocess or a library
+    }
 }
 
 STRUCTURE_EXEMPT_COURSES = {"ECE002"}
@@ -173,17 +188,23 @@ class CourseMeta:
     document_version: str = "1.0"
     document_date: str = "N/A"
     document_git_hash: str = "N/A"
-    
+
+@dataclass
+class SyllabusBlock:
+    course_display_type: str 
+    units: List[Dict] = field(default_factory=list)
+    pc_experiments: List[Dict] = field(default_factory=list)
+    raw_content: List[Dict] = field(default_factory=list)    
 
 @dataclass
 class CanonicalCourse:
     """The 'Big Object' representing the entire course."""
     course_code: str
     course_meta: CourseMeta  # Grouped metadata
+    syllabus: SyllabusBlock
     description: str
     objectives: List[str] = field(default_factory=list)
     outcomes: List[Dict] = field(default_factory=list)
-    syllabus: List[Dict] = field(default_factory=list)
     textbooks: List[Dict] = field(default_factory=list)
     references: List[Dict] = field(default_factory=list)
     # Sections as raw strings for final pass-through
