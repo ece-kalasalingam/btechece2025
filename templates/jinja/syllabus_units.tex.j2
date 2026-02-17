@@ -17,7 +17,7 @@
     \textbf{[[ unit.unit_number ]]} &
     \textbf{[[ unit.unit_title ]]} &
     \textbf{[[ unit.unit_hours ]]} &
-    \textbf{CO[[ unit.unit_cos_raw | join(", CO") ]]} \\
+    \textbf{CO[[ unit.cos | join(", CO") ]]} \\
     % ---------- Row 2 : Topics ----------
     &\textit{Topics:}
     [% for topic in unit.topics -%]

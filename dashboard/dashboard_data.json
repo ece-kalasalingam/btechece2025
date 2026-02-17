@@ -1,46 +1,46 @@
 {
-    "global_source_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+    "global_source_sha": "1d20b97c0cd70eafa359a5c70378724a4c1717d208735ac34fe4e746ff01a10d",
     "views": [
         {
             "view": "a4",
-            "filename": "KARE_Syllabus_a4.pdf",
-            "relative_path": "syllabus_books/KARE_Syllabus_a4.pdf",
+            "filename": "R25_ECE_syllabus_a4.pdf",
+            "relative_path": "syllabus_books/R25_ECE_syllabus_a4.pdf",
             "exists": true,
-            "size": "201.9 KB",
-            "last_modified": "2026-02-16 15:38",
-            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "size": "204.8 KB",
+            "last_modified": "2026-02-17 06:47",
+            "built_with_sha": "1d20b97c0cd70eafa359a5c70378724a4c1717d208735ac34fe4e746ff01a10d",
             "status": "SYNCHRONIZED"
         },
         {
             "view": "a5",
-            "filename": "KARE_Syllabus_a5.pdf",
-            "relative_path": "syllabus_books/KARE_Syllabus_a5.pdf",
+            "filename": "R25_ECE_syllabus_a5.pdf",
+            "relative_path": "syllabus_books/R25_ECE_syllabus_a5.pdf",
             "exists": true,
             "size": "205.6 KB",
-            "last_modified": "2026-02-16 15:39",
+            "last_modified": "2026-02-16 22:02",
             "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
-            "status": "SYNCHRONIZED"
+            "status": "OUTDATED"
         },
         {
-            "view": "courses-list",
-            "filename": "KARE_Syllabus_courses-list.xlsx",
-            "relative_path": "syllabus_books/KARE_SYLLABUS_courses-list.xlsx",
+            "view": "courses_list",
+            "filename": "R25_ECE_syllabus_courses_list.xlsx",
+            "relative_path": "syllabus_books/R25_ECE_syllabus_courses_list.xlsx",
             "exists": true,
             "size": "5.2 KB",
-            "last_modified": "2026-02-16 15:39",
+            "last_modified": "2026-02-16 22:02",
             "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
-            "status": "SYNCHRONIZED"
+            "status": "OUTDATED"
         },
         {
-            "view": "co-bloom",
-            "filename": "KARE_Syllabus_co-bloom.docx",
-            "relative_path": "syllabus_books/KARE_SYLLABUS_co-bloom.docx",
+            "view": "co_blooms",
+            "filename": "R25_ECE_syllabus_co_blooms.docx",
+            "relative_path": "syllabus_books/R25_ECE_syllabus_co_blooms.docx",
             "exists": true,
             "size": "13.9 KB",
-            "last_modified": "2026-02-16 15:39",
+            "last_modified": "2026-02-16 22:02",
             "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
-            "status": "SYNCHRONIZED"
+            "status": "OUTDATED"
         }
     ],
-    "last_audit": "2026-02-16 15:39:44"
+    "last_audit": "2026-02-17 06:47:27"
 }

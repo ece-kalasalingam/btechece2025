@@ -1,6 +1,9 @@
+from unittest import result
+from dataclasses import asdict
 from scripts.contracts import MONTH_MAP, CourseExecutionContext, CO_MIN_COUNT, CO_MAX_COUNT 
 from scripts.utils import normalize_syllabus_text, capitalize_if_first_char_english
 from scripts.md_to_latex import MarkdownToLatexConverter
+from typing import Any, Dict, List, Set, Union
 
 def normalize_bos_date(date_str: str) -> str:
     """Targeted normalization for the date component only."""
@@ -25,8 +28,6 @@ def normalize_bos_date(date_str: str) -> str:
         normalized_year = year_part
         
     return f"{normalized_month} {normalized_year}"
-
-from typing import Dict, Union
 
 def sum_syllabus_hours(data) -> Dict[str, Union[int, float]]:
     """
@@ -61,6 +62,26 @@ def sum_syllabus_hours(data) -> Dict[str, Union[int, float]]:
     # Start the process
     recurse(data)
     return totals
+def extract_unique_syllabus_cos(syllabus: dict) -> list[int]:
+    unique_cos = set()
+
+    def traverse(obj):
+        if isinstance(obj, dict):
+            for k, v in obj.items():
+                if k == "cos" and isinstance(v, list):
+                    unique_cos.update(
+                        co for co in v if isinstance(co, int)
+                    )
+                else:
+                    traverse(v)
+        elif isinstance(obj, list):
+            for item in obj:
+                traverse(item)
+
+    traverse(syllabus)
+
+    return sorted(unique_cos)   # return as list
+
 
 def run_policy_gate(ctx: CourseExecutionContext):
     """
@@ -150,9 +171,6 @@ def run_policy_gate(ctx: CourseExecutionContext):
         )
 
     # 9. Convert MD to Latex for the special courses
-    if not ctx.course or not ctx.course.syllabus:
-        return
-
     converter = MarkdownToLatexConverter()
     raw_list = ctx.course.syllabus.raw_content
     if raw_list:
@@ -165,11 +183,22 @@ def run_policy_gate(ctx: CourseExecutionContext):
         
         # 3. Insert the new key/value pair into the SAME dictionary
         entry["latex"] = latex
-        
-    else:
-        return
 
-    # 9. To do check all the COs are mapped in the syllabus
+    # 10. Check all the COs are mapped in the syllabus
+    if ctx.course.outcomes:
+        total_cos = len(ctx.course.outcomes)
+        expected_ids = set(range(1, total_cos + 1))
+        actual_ids = set(extract_unique_syllabus_cos(asdict(ctx.course.syllabus)))
+        if actual_ids:
+            if not expected_ids.issubset(actual_ids):
+                missing = sorted(expected_ids - actual_ids)
+                if missing:
+                    ctx.log(
+                        "STAGE-6",
+                        "SYLLABUS-CO-COVERAGE-MISSING",
+                        f"Syllabus is missing mappings for COs: {missing}",
+                        fatal=True
+                    )
 
     # 4. Course Level range (0–6) is a policy guideline, not a hard constraint.
     # if not (0 <= meta.course_level <= 6):

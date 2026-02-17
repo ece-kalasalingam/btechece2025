@@ -48,6 +48,18 @@
               \item [[ co.outcome ]]
             [% endfor %]
           \end{enumerate}
+          \BlockHeading{CO-Blooms Mapping}
+          \begin{COBloomTable}
+            \begin{xltabular}{\textwidth}{|c|X|c|}
+              \hline
+              \textbf{CO} & \textbf{Course Outcome} & \textbf{Bloom's Level} \\
+              \hline
+              [% for co in course.outcomes %]
+                CO[[ co.id ]] & [[ co.outcome ]] & K[[ co.k_level ]] - [[ co.bloom ]] \\
+                \hline
+              [% endfor %]
+            \end{xltabular}
+          \end{COBloomTable}
 
           \BlockHeading{Syllabus}
           [% if course.syllabus and course.syllabus.course_display_type == "UNITIZED-TABLE" %]

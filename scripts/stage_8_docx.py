@@ -12,7 +12,7 @@ from scripts.contracts import (
     ACADEMIC_JSON_FILE,
     DESTINATION_DIR,
     TEMPLATES_DIR,
-    DOCX_TEMPLATES_DIR,
+    DOCX_TEMPLATES_DIR,FILE_PREFIX,
     BLOOM_EXPANSION, CourseCategory
 )
 
@@ -69,7 +69,7 @@ def force_table_style_design(
 
 
 
-def generate_word_co_bloom(view_type="co-bloom"):
+def generate_word_co_bloom(view_type="co_blooms"):
     json_path = get_path(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
     if not json_path.exists():
         raise FileNotFoundError(
@@ -77,7 +77,7 @@ def generate_word_co_bloom(view_type="co-bloom"):
         )
     """Generates a 5-column Word table with AutoFit to Contents behavior."""
     md_path = get_path(TEMP_OUTPUT_DIR, "temp_report.md")
-    docx_path = get_path(DESTINATION_DIR, f"KARE_SYLLABUS_{view_type}.docx")
+    docx_path = get_path(DESTINATION_DIR, f"{FILE_PREFIX}_{view_type}.docx")
     ref_doc_path = get_path(TEMPLATES_DIR, DOCX_TEMPLATES_DIR, "co-bloom-reference.docx")
 
     with open(json_path, "r", encoding="utf-8") as f:

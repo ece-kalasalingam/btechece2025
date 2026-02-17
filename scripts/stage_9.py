@@ -5,7 +5,8 @@ from scripts.contracts import (
     DASHBOARD_DIR, 
     DASHBOARD_JSON_FILE, 
     DESTINATION_DIR, 
-    VIEW_CONFIG
+    VIEW_CONFIG,
+    FILE_PREFIX
 )
 
 def build_dashboard_data():
@@ -31,7 +32,7 @@ def build_dashboard_data():
     for view_name, config in VIEW_CONFIG.items():
         # Construct the expected filename (e.g., syllabus_books/a4_syllabus.pdf)
         extension = config.get("ext", "pdf")
-        filename = f"KARE_Syllabus_{view_name}.{extension}"
+        filename = f"{FILE_PREFIX}_{view_name}.{extension}"
         file_path = get_path(DESTINATION_DIR, filename)
         # CALCULATE RELATIVE PATH: OS-agnostic path relative to the project root
         # This ensures the link works in GitHub Actions and different local folders

@@ -1,3 +1,5 @@
+from logging import config
+import sys
 from scripts.stage_8_xlsx import generate_excel_courses_list
 from scripts.stage_8_docx import generate_word_co_bloom
 from scripts.stage_8_pdf import generate_pdf
@@ -11,12 +13,6 @@ from scripts.contracts import (
 )
 from scripts.utils import validate_environment_for_view
 
-OTHER_VIEW_HANDLERS = {
-    "courses-list": generate_excel_courses_list,
-    "co-bloom": generate_word_co_bloom
-    # we can add more handlers here in the future if needed
-}
-
 def run_book_generation(view_type="a4"):
     if view_type not in VIEW_CONFIG:
         raise ValueError(f"Unknown view type: {view_type}")
@@ -29,10 +25,17 @@ def run_book_generation(view_type="a4"):
     if view_config.get("ext") == "pdf":
         generate_pdf(view_type=view_type)
     else:
-        handler = OTHER_VIEW_HANDLERS.get(view_type)
-        if not handler:
-            raise ValueError(f"No handler for view: {view_type}")
-        handler(view_type=view_type)
+        handler_name = view_config.get("handler")
+        if handler_name:
+            # Look up the function in the current module (stage_8.py) by its name
+            current_module = sys.modules[__name__]
+            handler_func = getattr(current_module, handler_name, None)
+            
+            if not handler_func:
+                raise ValueError(f"Handler function '{handler_name}' not found in stage_8.py")
+            
+            # Run the function
+            handler_func(view_type=view_type)
 
     manifest_path = get_path(DASHBOARD_DIR, DASHBOARD_JSON_FILE)
     if not manifest_path.exists(): return

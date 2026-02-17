@@ -16,6 +16,7 @@ from scripts.contracts import (
     JINJA_TEMPLATES_DIR,
     DESTINATION_DIR,
     CHECKPOINTS_DIR,
+    FILE_PREFIX,
     CourseCategory
 )
 
@@ -129,7 +130,7 @@ def finalize_output(view_type: str = "a4"):
     dest_dir = Path(DESTINATION_DIR)
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    final_name = f"KARE_Syllabus_{view_type}.pdf"
+    final_name = f"{FILE_PREFIX}_{view_type}.pdf"
     pdf_path.replace(dest_dir / final_name)
 
 # --------------------------------------------------

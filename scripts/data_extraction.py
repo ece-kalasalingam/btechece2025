@@ -351,7 +351,7 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
             units.append({
                 "unit_number": unit_no,
                 "unit_title": unit_title,
-                "unit_cos_raw": unit_cos_raw,
+                "cos": unit_cos_raw,
                 "theory_hours": theory_hours,
                 "practical_hours": practical_hours,
                 "x_activity_hours": x_activity_hours,

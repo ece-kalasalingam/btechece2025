@@ -11,7 +11,8 @@ from scripts.contracts import (
     TEMP_OUTPUT_DIR,
     ACADEMIC_JSON_FILE,
     DESTINATION_DIR,
-    CourseCategory
+    CourseCategory,
+    FILE_PREFIX
 )
 def autosize_columns(ws):
     for col_idx, column_cells in enumerate(ws.columns, start=1):
@@ -23,7 +24,7 @@ def autosize_columns(ws):
         adjusted_width = max_length + 2  # padding
         ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
-def generate_excel_courses_list(view_type="courses-list"):
+def generate_excel_courses_list(view_type="courses_list"):
 
     # ----------------------------
     # 1. Validate JSON (NO TRY)
@@ -163,7 +164,7 @@ def generate_excel_courses_list(view_type="courses-list"):
 
         autosize_columns(ws)
 
-        out_path = get_path(DESTINATION_DIR, f"KARE_SYLLABUS_{view_type}.xlsx")
+        out_path = get_path(DESTINATION_DIR, f"{FILE_PREFIX}_{view_type}.xlsx")
         out_path.parent.mkdir(parents=True, exist_ok=True)
 
         wb.save(out_path)

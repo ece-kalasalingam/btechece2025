@@ -17,6 +17,7 @@ CO_MIN_COUNT = 3
 CO_MAX_COUNT = 6
 DASHBOARD_DIR = "dashboard"
 DASHBOARD_JSON_FILE = "dashboard_data.json"
+FILE_PREFIX = "R25_ECE_syllabus"
 
 
 MONTH_MAP = {
@@ -44,10 +45,10 @@ BLOOM_EXPANSION = {
 
 # View Configurations
 VIEW_CONFIG = {
-    "a4": {"template": "base.tex.j2", "ext": "pdf"},
-    "a5": {"template": "base.tex.j2", "ext": "pdf"},
-    "courses-list": {"ext": "xlsx"},
-    "co-bloom": {"ext": "docx"}
+    "a4": {"template": "base.tex.j2", "ext": "pdf", "handler":None},
+    "a5": {"template": "base.tex.j2", "ext": "pdf", "handler":None},
+    "courses_list": {"ext": "xlsx", "handler": "generate_excel_courses_list"},
+    "co_blooms": {"ext": "docx", "handler": "generate_word_co_bloom"}
 }
 EXTENSION_GUARDS = {
     "pdf": {
