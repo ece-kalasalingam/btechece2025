@@ -42,6 +42,15 @@ BLOOM_EXPANSION = {
     "CR": "Create",
 }
 
+# -------------------------------
+# Articulation Matrix Contracts
+# -------------------------------
+
+PO_MAX_COUNT = 11
+PSO_MAX_COUNT = 3
+SO_MAX_COUNT = 7
+
+ARTICULATION_ALLOWED_VALUES = {1, 2, 3}
 
 # View Configurations
 VIEW_CONFIG = {
@@ -95,12 +104,15 @@ class CourseType(Enum):
 
 # Section Sequence
 COURSE_SECTION_SEQUENCE = [
-    {"title": "COURSE DESCRIPTION", "mandatory": True},
-    {"title": "COURSE OBJECTIVES", "mandatory": True},
-    {"title": "COURSE OUTCOMES", "mandatory": True},
-    {"title": "SYLLABUS", "mandatory": True},
-    {"title": "TEXTBOOKS", "mandatory": True},
-    {"title": "REFERENCES", "mandatory": True},
+    {"title": "COURSE DESCRIPTION", "mandatory": True, "grammar": "_validate_description_grammar"},
+    {"title": "COURSE OBJECTIVES", "mandatory": True, "grammar": "_validate_objectives_grammar"},
+    {"title": "COURSE OUTCOMES", "mandatory": True, "grammar": "_validate_outcomes_grammar"},
+    {"title": "SYLLABUS", "mandatory": True, "grammar": "_validate_syllabus_grammar"},
+    {"title": "TEXTBOOKS", "mandatory": True, "grammar": "_validate_textbooks_grammar"},
+    {"title": "REFERENCES", "mandatory": True, "grammar": "_validate_references_grammar"},
+    {"title": "ARTICULATION MATRIX", "mandatory": True, "grammar": "_validate_articulation_grammar"},
+    {"title": "ASSESSMENT SCHEME", "mandatory": False, "grammar": None},
+    {"title": "RUBRICS", "mandatory": False, "grammar": None},
 ]
 SECTION_OPTIONAL_POLICY = {
     "textbooks": {
@@ -147,6 +159,7 @@ class RenderReport:
     latex_special_char_lines: List[Tuple[int, List[str], str]] = field(default_factory=list)
     long_line_risk: List[Tuple[int, str]] = field(default_factory=list)
     tables: List[TableRenderInfo] = field(default_factory=list)
+
 @dataclass
 class CourseExecutionContext:
     course_code: str

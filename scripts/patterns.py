@@ -236,3 +236,10 @@ STANDARD_EXTRACT_PATTERN = re.compile(
     r'\.?\s*$',                             # Optional dot and line end
     re.I
 )
+# -------------------------------
+# Articulation Matrix Pattern
+# -------------------------------
+
+ARTICULATION_MAP_PATTERN = re.compile(
+    r'(?P<label>(PO|PSO|SO)\d+)\s*=\s*(?P<value>[1-3])'
+)
