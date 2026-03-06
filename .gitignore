@@ -11,6 +11,11 @@ temp_output/
 temp_logs/
 temporary_files/
 
+# Ignore generated syllabus files (keep .gitkeep)
+syllabus_books/*.pdf
+syllabus_books/*.docx
+syllabus_books/*.xlsx
+
 # Local testing scripts
 test_bench.py
 sandbox.py
