@@ -1,6 +1,6 @@
 from logging import config
 import sys
-from scripts.stage_8_xlsx import generate_excel_courses_list
+from scripts.stage_8_xlsx import generate_excel_courses_list, generate_excel_articulation_matrix
 from scripts.stage_8_docx import generate_word_co_bloom
 from scripts.stage_8_pdf import generate_pdf
 from scripts.paths import get_path

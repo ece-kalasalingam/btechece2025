@@ -2,9 +2,6 @@ from scripts.paths import get_path
 import subprocess
 from pathlib import Path
 import json
-from docx import Document
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
 import shutil
 
 from scripts.contracts import (
@@ -12,15 +9,41 @@ from scripts.contracts import (
     ACADEMIC_JSON_FILE,
     DESTINATION_DIR,
     TEMPLATES_DIR,
-    DOCX_TEMPLATES_DIR,FILE_PREFIX,
+    DOCX_TEMPLATES_DIR,
+    FILE_PREFIX,
+    COURSES_DIR,
     BLOOM_EXPANSION, CourseCategory
 )
+
+
+def resolve_reference_doc_path() -> Path:
+    """
+    Resolve the DOCX reference template path.
+
+    Preferred location is `courses_md/co-bloom-reference.docx` so templateing stays
+    with course sources. Legacy fallback keeps backward compatibility with
+    `templates/docx/co-bloom-reference.docx`.
+    """
+    preferred = get_path(COURSES_DIR, "co-bloom-reference.docx")
+    legacy = get_path(TEMPLATES_DIR, DOCX_TEMPLATES_DIR, "co-bloom-reference.docx")
+
+    if preferred.exists():
+        return preferred
+    if legacy.exists():
+        return legacy
+
+    raise FileNotFoundError(
+        "Stage 8 DOCX: Reference template not found. Expected one of: "
+        f"{preferred} or {legacy}"
+    )
 
 def print_table_styles(docx_path):
     """
     Prints all table styles available in the DOCX.
     Run once to discover the correct style name.
     """
+    from docx import Document
+
     doc = Document(str(docx_path))
 
     print("\n📋 Available TABLE styles in this DOCX:\n")
@@ -38,6 +61,10 @@ def force_table_style_design(
         total_row: bool = False,
         last_column: bool = False,
     ):
+    from docx import Document
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
     doc = Document(str(docx_path))
     """
     Removes fixed table layout so Word re-applies AutoFit to Contents.
@@ -78,7 +105,7 @@ def generate_word_co_bloom(view_type="co_blooms"):
     """Generates a 5-column Word table with AutoFit to Contents behavior."""
     md_path = get_path(TEMP_OUTPUT_DIR, "temp_report.md")
     docx_path = get_path(DESTINATION_DIR, f"{FILE_PREFIX}_{view_type}.docx")
-    ref_doc_path = get_path(TEMPLATES_DIR, DOCX_TEMPLATES_DIR, "co-bloom-reference.docx")
+    ref_doc_path = resolve_reference_doc_path()
 
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)

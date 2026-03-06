@@ -298,6 +298,18 @@ def _extract_syllabus_data(content: str, ctx: CourseExecutionContext):
     pc_experiments = syllabus.setdefault("pc_experiments", [])
     raw_content = syllabus.setdefault("raw_content", [])
 
+    lowered = (content or "").lower()
+    if "legacy_docx_source: true" in lowered or "legacydocxsource: true" in lowered:
+        syllabus["course_display_type"] = "RAW"
+        cleaned = re.sub(
+            r"^\s*legacy_docx_source\s*:\s*true\s*$",
+            "",
+            content,
+            flags=re.IGNORECASE | re.MULTILINE,
+        ).strip()
+        raw_content.append({"content": cleaned})
+        return
+
     # --------------------------------------------------
     # IC-T / IC-P / TC
     # --------------------------------------------------

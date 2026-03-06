@@ -41,8 +41,20 @@ def run_footer_extraction(ctx: CourseExecutionContext):
                 ctx.metadata[key] = val
 
     validate_course_code(ctx.course_code)
-    file_path = get_path(COURSES_DIR) / f"{ctx.course_code}.md"
-    git_ver, git_date, git_hash = get_git_metadata(file_path)
+    courses_root = get_path(COURSES_DIR)
+    file_path_md = courses_root / f"{ctx.course_code}.md"
+    file_path_docx = courses_root / f"{ctx.course_code}.docx"
+
+    # Prefer whichever source file actually exists in courses_md.
+    if file_path_docx.exists():
+        source_file_path = file_path_docx
+    elif file_path_md.exists():
+        source_file_path = file_path_md
+    else:
+        # Keep metadata extraction resilient for transient or generated inputs.
+        source_file_path = file_path_docx
+
+    git_ver, git_date, git_hash = get_git_metadata(source_file_path)
     
     ctx.metadata["document_version"] = git_ver
     ctx.metadata["document_date"] = git_date

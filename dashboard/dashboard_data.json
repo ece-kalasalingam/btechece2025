@@ -1,15 +1,15 @@
 {
-    "global_source_sha": "6822bf37242951e9d0355dd75659a54f1b1ebbd4dfcc5f6d0055121b4930bcb4",
+    "global_source_sha": "24499164799b1bc7c1aa7a2e846bd024f90ed74a90ea4b816ebc1e50a49003f0",
     "views": [
         {
             "view": "a4",
             "filename": "R25_ECE_syllabus_a4.pdf",
             "relative_path": "syllabus_books/R25_ECE_syllabus_a4.pdf",
             "exists": true,
-            "size": "204.8 KB",
-            "last_modified": "2026-02-17 15:26",
-            "built_with_sha": "1d20b97c0cd70eafa359a5c70378724a4c1717d208735ac34fe4e746ff01a10d",
-            "status": "OUTDATED"
+            "size": "191.8 KB",
+            "last_modified": "2026-03-06 16:35",
+            "built_with_sha": "24499164799b1bc7c1aa7a2e846bd024f90ed74a90ea4b816ebc1e50a49003f0",
+            "status": "SYNCHRONIZED"
         },
         {
             "view": "a5",
@@ -17,7 +17,7 @@
             "relative_path": "syllabus_books/R25_ECE_syllabus_a5.pdf",
             "exists": true,
             "size": "205.6 KB",
-            "last_modified": "2026-02-17 09:25",
+            "last_modified": "2026-03-06 10:59",
             "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
             "status": "OUTDATED"
         },
@@ -27,20 +27,30 @@
             "relative_path": "syllabus_books/R25_ECE_syllabus_courses_list.xlsx",
             "exists": true,
             "size": "5.2 KB",
-            "last_modified": "2026-02-17 09:25",
-            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
-            "status": "OUTDATED"
+            "last_modified": "2026-03-06 16:35",
+            "built_with_sha": "24499164799b1bc7c1aa7a2e846bd024f90ed74a90ea4b816ebc1e50a49003f0",
+            "status": "SYNCHRONIZED"
         },
         {
             "view": "co_blooms",
             "filename": "R25_ECE_syllabus_co_blooms.docx",
             "relative_path": "syllabus_books/R25_ECE_syllabus_co_blooms.docx",
             "exists": true,
-            "size": "13.9 KB",
-            "last_modified": "2026-02-17 09:25",
-            "built_with_sha": "e2887477e44b17fc8e5a05c9a5cd3aab9d13f6a045cd2a74a403703eb69fa3e2",
+            "size": "13.7 KB",
+            "last_modified": "2026-03-06 16:35",
+            "built_with_sha": "24499164799b1bc7c1aa7a2e846bd024f90ed74a90ea4b816ebc1e50a49003f0",
+            "status": "SYNCHRONIZED"
+        },
+        {
+            "view": "articulation_matrix",
+            "filename": "R25_ECE_syllabus_articulation_matrix.xlsx",
+            "relative_path": "syllabus_books/R25_ECE_syllabus_articulation_matrix.xlsx",
+            "exists": true,
+            "size": "6.1 KB",
+            "last_modified": "2026-03-06 16:33",
+            "built_with_sha": "f779bbbb3086822d1fa77779ea628475d417093314952da2e4c8922c31a65736",
             "status": "OUTDATED"
         }
     ],
-    "last_audit": "2026-02-17 16:54:34"
+    "last_audit": "2026-03-06 16:35:39"
 }

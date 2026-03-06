@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import re
 import shutil
 import sys
@@ -359,10 +360,11 @@ def validate_environment_for_view(view_name: str) -> bool:
     if ext not in EXTENSION_GUARDS:
         raise RuntimeError(f"Extension '.{ext}' is not defined in the security guards.")
     required_mods = EXTENSION_GUARDS[ext]["modules"]
-    if not any(mod in sys.modules for mod in required_mods):
+    missing_mods = [mod for mod in required_mods if importlib.util.find_spec(mod) is None]
+    if missing_mods:
         raise ImportError(
             f"Environment Mismatch: Configuration requested '.{ext}', "
-            f"but none of the required modules {required_mods} are imported."
+            f"but required module(s) {missing_mods} are not installed."
         )
     required_tools = EXTENSION_GUARDS[ext].get("tools", [])
     if required_tools is None:

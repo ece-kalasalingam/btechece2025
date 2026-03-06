@@ -201,6 +201,10 @@ def _validate_outcomes_grammar(content: str, ctx: CourseExecutionContext):
 def _validate_syllabus_grammar(content: str, ctx: CourseExecutionContext):
     if ctx is None:
         return
+    lowered = (content or "").lower()
+    if "legacy_docx_source: true" in lowered or "legacydocxsource: true" in lowered:
+        _validate_exempted_syllabus_markdown(content, ctx)
+        return
     course_type = ctx.metadata["course_type"] if ctx and ctx.metadata else None
     # Grammar1: Check Grammar for IC-T, IC-P, TC courses
     if (

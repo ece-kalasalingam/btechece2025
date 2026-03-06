@@ -57,7 +57,8 @@ VIEW_CONFIG = {
     "a4": {"template": "base.tex.j2", "ext": "pdf", "handler":None},
     "a5": {"template": "base.tex.j2", "ext": "pdf", "handler":None},
     "courses_list": {"ext": "xlsx", "handler": "generate_excel_courses_list"},
-    "co_blooms": {"ext": "docx", "handler": "generate_word_co_bloom"}
+    "co_blooms": {"ext": "docx", "handler": "generate_word_co_bloom"},
+    "articulation_matrix": {"ext": "xlsx", "handler": "generate_excel_articulation_matrix"}
 }
 EXTENSION_GUARDS = {
     "pdf": {

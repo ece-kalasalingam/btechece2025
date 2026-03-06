@@ -1,11 +1,7 @@
 from scripts.paths import get_path
 import json
-from openpyxl import Workbook
-from openpyxl.worksheet.worksheet import Worksheet
 from typing import cast
-from openpyxl.styles import Alignment, Border, Side, Font
-from openpyxl.utils import get_column_letter
-from openpyxl.cell.cell import Cell
+import re
 
 from scripts.contracts import (
     TEMP_OUTPUT_DIR,
@@ -15,6 +11,8 @@ from scripts.contracts import (
     FILE_PREFIX
 )
 def autosize_columns(ws):
+    from openpyxl.utils import get_column_letter
+
     for col_idx, column_cells in enumerate(ws.columns, start=1):
         max_length = 0
         for cell in column_cells:
@@ -25,6 +23,10 @@ def autosize_columns(ws):
         ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
 def generate_excel_courses_list(view_type="courses_list"):
+    from openpyxl import Workbook
+    from openpyxl.cell.cell import Cell
+    from openpyxl.styles import Alignment, Border, Side, Font
+    from openpyxl.worksheet.worksheet import Worksheet
 
     # ----------------------------
     # 1. Validate JSON (NO TRY)
@@ -175,3 +177,96 @@ def generate_excel_courses_list(view_type="courses_list"):
         raise RuntimeError(
             f"Stage 8 XLSX: Excel generation failed: {e}"
         ) from e
+
+
+def _parse_articulation(articulation: str):
+    rows = []
+    if not articulation:
+        return rows
+    line_pat = re.compile(r"^\s*[-*]\s*CO(\d+)\s*:\s*(.+?)\s*$", re.IGNORECASE)
+    map_pat = re.compile(r"(?P<label>(PO|PSO|SO)\d+)\s*=\s*(?P<value>[1-3])", re.IGNORECASE)
+
+    for raw in articulation.splitlines():
+        m = line_pat.match(raw.strip())
+        if not m:
+            continue
+        co = int(m.group(1))
+        values = {}
+        for part in m.group(2).split(","):
+            mm = map_pat.fullmatch(part.strip())
+            if not mm:
+                continue
+            values[mm.group("label").upper()] = int(mm.group("value"))
+        rows.append((co, values))
+    return rows
+
+
+def generate_excel_articulation_matrix(view_type="articulation_matrix"):
+    from openpyxl import Workbook
+    from openpyxl.cell.cell import Cell
+    from openpyxl.styles import Alignment, Border, Side, Font
+    from openpyxl.worksheet.worksheet import Worksheet
+    json_path = get_path(TEMP_OUTPUT_DIR, ACADEMIC_JSON_FILE)
+    if not json_path.exists():
+        raise FileNotFoundError(
+            f"Stage 8 XLSX: Academic JSON not found at {json_path}"
+        )
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    courses_by_category = data.get("courses")
+    if not isinstance(courses_by_category, dict) or not courses_by_category:
+        raise RuntimeError("Stage 8 XLSX: Missing or empty 'courses' dictionary.")
+
+    wb = Workbook()
+    ws_raw = wb.active
+    if ws_raw is None:
+        raise RuntimeError("Workbook has no active worksheet.")
+    ws = cast(Worksheet, ws_raw)
+    ws.title = "ArticulationMatrix"
+
+    headers = ["Course Code", "CO"] + [f"PO{i}" for i in range(1, 12)] + [f"PSO{i}" for i in range(1, 4)] + [f"SO{i}" for i in range(1, 8)]
+    ws.append(headers)
+
+    bold_font = Font(bold=True)
+    for cell in ws[1]:
+        c = cast(Cell, cell)
+        c.font = bold_font
+        c.alignment = Alignment(vertical="center", horizontal="center")
+
+    total_rows = 0
+    for cat in CourseCategory:
+        courses = courses_by_category.get(cat.code, [])
+        if not isinstance(courses, list):
+            continue
+        for course in courses:
+            if not isinstance(course, dict):
+                continue
+            code = course.get("course_code", "")
+            articulation = course.get("articulation", "")
+            for co_id, maps in _parse_articulation(articulation):
+                row = [code, f"CO{co_id}"]
+                for label in headers[2:]:
+                    row.append(maps.get(label, ""))
+                ws.append(row)
+                total_rows += 1
+
+    if total_rows == 0:
+        raise RuntimeError("Stage 8 XLSX: No articulation rows found in course data.")
+
+    ws.freeze_panes = "A2"
+    center_align = Alignment(horizontal="center", vertical="center")
+    thin = Side(style="thin")
+    full_border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for row in ws.iter_rows(min_row=1, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        for cell in row:
+            cell.alignment = center_align
+            cell.border = full_border
+
+    autosize_columns(ws)
+    out_path = get_path(DESTINATION_DIR, f"{FILE_PREFIX}_{view_type}.xlsx")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    wb.save(out_path)
+    print(f"✅ Excel file generated: {out_path}")

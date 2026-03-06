@@ -4,6 +4,7 @@ from scripts.paths import get_path
 from scripts.utils import normalize_line_endings, validate_course_code
 from scripts.contracts import COURSES_DIR, INDEX_FILE
 from typing import List
+from scripts.docx_ingestion import convert_docx_to_normalized_markdown
 
 def ingest(raw_text: str) -> str:
     """
@@ -51,10 +52,21 @@ def iter_courses():
             yield code, None, str(e)
             continue
 
-        file_path = courses_path / f"{code}.md"
-        if not file_path.exists():
-            yield code, None, f"Missing course file: {file_path}"
+        file_path_md = courses_path / f"{code}.md"
+        file_path_docx = courses_path / f"{code}.docx"
+
+        if file_path_md.exists():
+            raw_text = file_path_md.read_text(encoding="utf-8")
+            yield code, raw_text, None
             continue
 
-        raw_text = file_path.read_text(encoding="utf-8")
-        yield code, raw_text, None
+        if file_path_docx.exists():
+            try:
+                raw_text = convert_docx_to_normalized_markdown(code, file_path_docx)
+                raw_text = ingest(raw_text)
+                yield code, raw_text, None
+            except Exception as e:
+                yield code, None, f"DOCX parse failed for {file_path_docx}: {e}"
+            continue
+
+        yield code, None, f"Missing course file: {file_path_md} or {file_path_docx}"
